@@ -126,54 +126,7 @@ static const __device__ constexpr ncclKernelFunc_t ncclFuncs[]{
 #endif
 };
 
-template<unsigned short f, unsigned short l>
-struct Caller {
-  static __device__ __host__
-  void call(struct ncclWorkElem* const c) noexcept
-  {
-    constexpr unsigned short m = f + (l - f) / 2;
-
-     return (c->funcIndex < m) ? Caller<f, m>::call(c) : Caller<m, l>::call(c);
-  }
-};
-
-template<unsigned short f>
-struct Caller<f, f + 1>{
-  static __device__ __host__
-  void call(struct ncclWorkElem* const c) noexcept { ncclFuncs[f](c); }
-};
-
 static_assert(FUNC_INDEX_P2P == 1800, "Wrong P2P function index");
-
-inline
-__device__
-void NCCL_CALL_FUNCTIONS(struct ncclWorkElem* const c) noexcept {
-  if (c->funcIndex < 360) {
-    if (c->funcIndex % 9 == 0) ncclFunction_Broadcast_TREE_LL_Sum_int8_t(c);
-    else if (c->funcIndex % 9 == 1) ncclFunction_Broadcast_TREE_LL_Sum_int8_t(c);
-    else if (c->funcIndex % 9 == 2) ncclFunction_Broadcast_TREE_SIMPLE_Sum_int8_t(c);
-    else if (c->funcIndex % 9 == 3) ncclFunction_Broadcast_RING_LL_Sum_int8_t(c);
-    else if (c->funcIndex % 9 == 4) ncclFunction_Broadcast_RING_LL_Sum_int8_t(c);
-    else if (c->funcIndex % 9 == 5) ncclFunction_Broadcast_RING_SIMPLE_Sum_int8_t(c);
-    else if (c->funcIndex % 9 == 6) ncclFunction_Broadcast_COLLNET_LL_Sum_int8_t(c);
-    else if (c->funcIndex % 9 == 7) ncclFunction_Broadcast_COLLNET_LL_Sum_int8_t(c);
-    else ncclFunction_Broadcast_COLLNET_SIMPLE_Sum_int8_t(c);
-  }
-  else if (c->funcIndex < 720) Caller<360, 720>::call(c);
-  else if (c->funcIndex < 1080) {
-    if (c->funcIndex % 9 == 0) ncclFunction_AllGather_TREE_LL_Sum_int8_t(c);
-    else if (c->funcIndex % 9 == 1) ncclFunction_AllGather_TREE_LL_Sum_int8_t(c);
-    else if (c->funcIndex % 9 == 2) ncclFunction_AllGather_TREE_SIMPLE_Sum_int8_t(c);
-    else if (c->funcIndex % 9 == 3) ncclFunction_AllGather_RING_LL_Sum_int8_t(c);
-    else if (c->funcIndex % 9 == 4) ncclFunction_AllGather_RING_LL_Sum_int8_t(c);
-    else if (c->funcIndex % 9 == 5) ncclFunction_AllGather_RING_SIMPLE_Sum_int8_t(c);
-    else if (c->funcIndex % 9 == 6) ncclFunction_AllGather_COLLNET_LL_Sum_int8_t(c);
-    else if (c->funcIndex % 9 == 7) ncclFunction_AllGather_COLLNET_LL_Sum_int8_t(c);
-    else ncclFunction_AllGather_COLLNET_SIMPLE_Sum_int8_t(c);
-  }
-  else if (c->funcIndex < 1800) Caller<1080, 1800>::call(c);
-  else ncclFunction_SendRecv_RING_SIMPLE_Sum_int8_t(c);
-}
 
 static __device__ void load_parallel(void* dst, void* src, size_t size, int tid) {
   int* d = (int*)dst;
@@ -312,7 +265,7 @@ __device__ void ncclKernel(struct ncclWorkElem first)  {
       if (w->funcIndex == FINDEX) {
         f.run(w);
       } else {
-        NCCL_CALL_FUNCTIONS(w);
+        ncclFuncs[w->funcIndex](w);
       }
     }
     index = (index+1) % NCCL_MAX_OPS;
