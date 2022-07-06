@@ -431,4 +431,7 @@ public:
   __device__ void recvSend(int eltN) {
     return GenericOp<1, 1, -1, -1>(-1, -1, eltN, false);
   }
+  __device__ void localCopy(intptr_t inpIx, intptr_t outIx, int eltN, bool postOp=false) {
+    return GenericOp<0, 0, Input, Output>(inpIx, outIx, eltN, postOp);
+  }
 };

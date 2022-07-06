@@ -20,6 +20,7 @@
 #if defined(ENABLE_NPKIT)
 #include "npkit/npkit.h"
 #endif
+#include "graph/topo.h"
 #include <fcntl.h>
 #include <unistd.h>
 #include <hip/hip_runtime.h>
@@ -51,8 +52,8 @@ std::chrono::high_resolution_clock::time_point ncclEpoch;
 #define NCCL_GROUP_CUDA_STREAM 1 // CGMD: CUDA 9.0,9.1 Need to use an internal CUDA stream
 #endif
 
-const char* ncclFuncStr[NCCL_NUM_FUNCTIONS+2] = { "Broadcast", "Reduce", "AllGather", "ReduceScatter", "AllReduce", "SendRecv", "AllToAllPivot" };
-const char* ncclAlgoStr[NCCL_NUM_ALGORITHMS] = { "Tree", "Ring", "CollNet" };
+const char* ncclFuncStr[NCCL_NUM_FUNCTIONS+2] = { "Broadcast", "Reduce", "AllGather", "ReduceScatter", "AllReduce", "SendRecv", "AllToAllPivot", "AllToAll", "CustomCollective" };
+const char* ncclAlgoStr[NCCL_NUM_ALGORITHMS] = { "Tree", "Ring", "MSCCL", "CollNet" };
 const char* ncclProtoStr[NCCL_NUM_PROTOCOLS] = { "LL", "LL128", "Simple" };
 const char* ncclDevRedOpStr[ncclNumDevRedOps] = { "Sum", "Prod", "Max", "Min", "PreMulSum", "SumPostDiv" };
 const char *ncclTypeStr[ncclNumTypes] = {"_i8", "_u8", "_i32", "_u32", "_i64", "_u64", "_f16", "_f32", "_f64", "_b16"};
@@ -335,6 +336,7 @@ static ncclResult_t commFree(ncclComm_t comm) {
   if (comm->bootstrap)
     NCCLCHECK(bootstrapClose(comm->bootstrap));
 
+  CUDACHECK(hipFree(comm->mscclHostComm.mscclDevComm.flags));
   CUDACHECK(hipFree((ncclDevCommAndChannels*)comm->devComm));
 
   for (int channel=0; channel<MAXCHANNELS; channel++)
@@ -369,6 +371,13 @@ static ncclResult_t commFree(ncclComm_t comm) {
     free(comm->intraCC);
   }
   NCCLCHECK(ncclCudaHostFree((void *)comm->abortFlag));
+
+  // free up MSCCL allocated scratchPad
+  if (comm->mscclHostComm.mscclDevComm.scratchBuffer != NULL && comm->mscclHostComm.scratchBufferSize > 0){
+    CUDACHECK(cudaFree(comm->mscclHostComm.mscclDevComm.scratchBuffer));
+    comm->mscclHostComm.mscclDevComm.scratchBuffer = NULL;
+    comm->mscclHostComm.scratchBufferSize = 0;
+  }
 
   // Poison comm to try and catch a double free
   commPoison(comm);
@@ -495,6 +504,7 @@ static ncclResult_t devCommSetup(ncclComm_t comm) {
   NCCLCHECK(ncclCudaCalloc(&devCommAndChans, 1));
   comm->devComm = &devCommAndChans->comm;
   comm->hostDevComm.channels = devCommAndChans->channels;
+  comm->hostDevComm.mscclInfo = devCommAndChans->mscclInfo;
 
   // Duplicate the channels on the device
   int nChannels = std::max(comm->nChannels, comm->p2pnChannels);
@@ -512,6 +522,12 @@ static ncclResult_t devCommSetup(ncclComm_t comm) {
   comm->hostDevComm.cpuTimestamp = NpKit::GetCpuTimestamp();
 #endif
 
+  // Allocating and copying MSCCL elements
+  NCCLCHECK(ncclCudaCalloc(&comm->mscclHostComm.mscclDevComm.flags, MSCCL_MAX_NUM_THREAD_BLOCKS_PER_CHANNEL * MAXCHANNELS));
+  comm->mscclHostComm.workIndex = 1; // start workIndex from 1 since flags are initialized to 0
+  comm->mscclHostComm.flagsNeedReset = 0; // since we just allocated them
+  NCCLCHECK(ncclCudaMemcpy(comm->hostDevComm.mscclInfo, &comm->mscclHostComm.mscclDevComm, 1));
+
   // Duplicate the dev comm on the device
   NCCLCHECK(ncclCudaMemcpy(comm->devComm, &comm->hostDevComm, 1));
   return ncclSuccess;
@@ -519,9 +535,9 @@ static ncclResult_t devCommSetup(ncclComm_t comm) {
 
 // Pre-process the string so that running "strings" on the lib can quickly reveal the version.
 #if defined(__HIP_PLATFORM_HCC__) || defined(__HCC__) || defined(__HIPCC__)
-#define VERSION_STRING "RCCL version " STR(NCCL_MAJOR) "." STR(NCCL_MINOR) "." STR(NCCL_PATCH) NCCL_SUFFIX "+hip" STR(HIP_VERSION_MAJOR) "." STR(HIP_VERSION_MINOR)
+#define VERSION_STRING "RCCL version " STR(NCCL_MAJOR) "." STR(NCCL_MINOR) "." STR(NCCL_PATCH) NCCL_SUFFIX ".MSCCL." STR(MSCCL_VERSION) "+hip" STR(HIP_VERSION_MAJOR) "." STR(HIP_VERSION_MINOR)
 #else
-#define VERSION_STRING "NCCL version " STR(NCCL_MAJOR) "." STR(NCCL_MINOR) "." STR(NCCL_PATCH) NCCL_SUFFIX "+cuda" STR(CUDA_MAJOR) "." STR(CUDA_MINOR)
+#define VERSION_STRING "NCCL version " STR(NCCL_MAJOR) "." STR(NCCL_MINOR) "." STR(NCCL_PATCH) NCCL_SUFFIX ".MSCCL." STR(MSCCL_VERSION) "+cuda" STR(CUDA_MAJOR) "." STR(CUDA_MINOR)
 #endif
 static void showVersion() {
   static int shown = 0;
@@ -582,6 +598,13 @@ static ncclResult_t setupChannel(struct ncclComm* comm, int channelId, int rank,
   for (int i=0; i<nranks; i++) {
     ring->userRanks[i] = ringRanks[(i+ixRank)%nranks];
   }
+  return ncclSuccess;
+}
+
+static ncclResult_t setupMSCCLChannel(struct ncclComm* comm, int mscclMinRequireNChannels) {
+  TRACE(NCCL_INIT, "rank %d nranks %d", comm->rank, comm->nRanks);
+  for (int channelId = comm->nChannels; channelId < mscclMinRequireNChannels; channelId++)
+    NCCLCHECK(initChannel(comm, channelId));
   return ncclSuccess;
 }
 
@@ -700,6 +723,10 @@ static ncclResult_t initTransportsRank(struct ncclComm* comm, ncclUniqueId* comm
   // We use 2 AllGathers
   // 1. { peerInfo, comm, compCap}
   // 2. { nChannels, graphInfo, topoRanks }
+
+  // needs declaration early to avoid goto compilation bug
+  int mscclMinRequireNChannels = 0;
+  int numValidMSCCLAlgos = 0;
 
   int rank = comm->rank;
   int nranks = comm->nRanks;
@@ -1083,6 +1110,8 @@ static ncclResult_t initTransportsRank(struct ncclComm* comm, ncclUniqueId* comm
     if (comm->nRanks == 1) continue;
     NCCLCHECKGOTO(ncclTransportP2pConnect(comm, channel, 1, &channel->ring.prev, 1, &channel->ring.next, 0), ret, affinity_restore);
   }
+  // use nChannelsRingOrTree in getAlgoInfo so that we honor NCCL decisions
+  comm->nChannelsRingOrTree = comm->nChannels;
   NCCLCHECKGOTO(ncclTransportP2pSetup(comm, &ringGraph, 0), ret, affinity_restore);
   if (ringGraph.nIntraChannels && rcclParamP2pNetDisable() == 0) {
     comm->useIntraNet = 1;
@@ -1106,6 +1135,92 @@ static ncclResult_t initTransportsRank(struct ncclComm* comm, ncclUniqueId* comm
   }
   NCCLCHECKGOTO(ncclTransportP2pSetup(comm, &treeGraph, 0), ret, affinity_restore);
   INFO(NCCL_INIT, "Connected all trees comm %p nRanks %02d busId %lx", comm, comm->nRanks, comm->busId);
+
+  // Read MSCCL algorithms first, but do not connect them yet.
+
+  if (getenv("MSCCL_XML_FILES") || getenv("MSCCL_CONFIG")) {
+    struct mscclHostCommInfo* mscclInfo = &comm->mscclHostComm;
+    if (getenv("MSCCL_XML_FILES")){
+      NCCLCHECK(mscclGetAllAlgoFromXMLFilesAndSetInfo(getenv("MSCCL_XML_FILES"), mscclInfo, ncclMaxNchannels(), comm->rank, comm->nRanks));
+    }
+    if (getenv("MSCCL_CONFIG")) {
+      NCCLCHECK(mscclGetAllAlgoFromConfigAndSetInfo(getenv("MSCCL_CONFIG"), mscclInfo, ncclMaxNchannels(), comm->rank, comm->nRanks));
+    }
+    for (int mscclAlgoIndex = 0; mscclAlgoIndex < mscclInfo->numberOfMSCCLAlgorithms; mscclAlgoIndex++){
+      struct mscclAlgorithm* mscclAlgo = &mscclInfo->mscclDevComm.mscclAlgos[mscclAlgoIndex];
+      if (mscclAlgo->isValid){
+        numValidMSCCLAlgos++;
+        // Make sure MSCCL at least has mscclAlgo->nChannels
+        mscclMinRequireNChannels = std::max(mscclMinRequireNChannels, mscclAlgo->nChannels);
+      } else {
+        WARN("MSCCL should have ignored all invalid algorithms at this point!");
+        return ncclInternalError;
+      }
+    }
+  }
+
+  if (numValidMSCCLAlgos > 0 && comm->nRanks > 1) {
+    // first allocate the channels if they are not allocated
+    NCCLCHECKGOTO(setupMSCCLChannel(comm, mscclMinRequireNChannels), ret, affinity_restore);
+    comm->nChannels = std::max(comm->nChannels, mscclMinRequireNChannels); // extending the comm nChannels
+
+    // now go over each algorithm and queue all of the necessary connections
+    for (int mscclAlgoIndex = 0; mscclAlgoIndex < comm->mscclHostComm.numberOfMSCCLAlgorithms; mscclAlgoIndex++){
+      struct mscclAlgorithm* mscclAlgo = &comm->mscclHostComm.mscclDevComm.mscclAlgos[mscclAlgoIndex];
+      if (mscclAlgo->isValid){
+        for (int c=0; c<mscclAlgo->nChannels; c++) {
+          struct ncclChannel* channel = comm->channels+c;
+          struct mscclChannelInfo* mscclChannel = &mscclAlgo->mscclChannels[c];
+
+          int sendPeers[MSCCL_MAX_NUM_THREAD_BLOCKS_PER_CHANNEL];
+          for (int p = 0; p < mscclChannel->nSendPeers; p++)
+            sendPeers[p] = mscclChannel->sendPeerInfo[p].peer;
+
+          int recvPeers[MSCCL_MAX_NUM_THREAD_BLOCKS_PER_CHANNEL];
+          for (int p = 0; p < mscclChannel->nRecvPeers; p++)
+            recvPeers[p] = mscclChannel->recvPeerInfo[p].peer;
+
+          NCCLCHECKGOTO(ncclTransportP2pConnect(comm, channel, mscclChannel->nRecvPeers, recvPeers, mscclChannel->nSendPeers, sendPeers, 0), ret, affinity_restore);
+        }
+      }
+    }
+
+    // connect MSCCL connections
+    comm->mscclHostComm.inMSCCLConnectionSetupPhase = 1; // hack to avoid a global change for shared buffer for net.cc
+    NCCLCHECKGOTO(ncclTransportP2pSetup(comm, NULL, 0), ret, affinity_restore);
+    INFO(NCCL_INIT, "Connected %d MSCCL algorithms", numValidMSCCLAlgos);
+    comm->mscclHostComm.inMSCCLConnectionSetupPhase = 0; // changing it back to 0 to avoid problems in the future if there was more connections
+
+    // now figure out if proxies are needed
+    for (int mscclAlgoIndex = 0; mscclAlgoIndex < comm->mscclHostComm.numberOfMSCCLAlgorithms; mscclAlgoIndex++){
+      struct mscclAlgorithm* mscclAlgo = &comm->mscclHostComm.mscclDevComm.mscclAlgos[mscclAlgoIndex];
+      if (mscclAlgo->isValid){
+        mscclAlgo->needsProxy = 0;
+        for (int c=0; c<mscclAlgo->nChannels; c++) {
+          struct ncclChannel* channel = comm->channels+c;
+          struct mscclChannelInfo* mscclChannel = &mscclAlgo->mscclChannels[c];
+
+          for (int p = 0; p < mscclChannel->nSendPeers; p++){
+            int needsProxy = 0;
+            NCCLCHECK(ConnectionNeedsProxy(channel, proxySend, mscclChannel->sendPeerInfo[p].peer, 0, &needsProxy));
+            if (needsProxy){
+              mscclAlgo->needsProxy = 1;
+              break;
+            }
+          }
+
+          for (int p = 0; p < mscclChannel->nRecvPeers; p++){
+            int needsProxy = 0;
+            NCCLCHECK(ConnectionNeedsProxy(channel, proxyRecv, mscclChannel->recvPeerInfo[p].peer, 0, &needsProxy));
+            if (needsProxy){
+              mscclAlgo->needsProxy = 1;
+              break;
+            }
+          }
+        }
+      }
+    }
+  }
 
   // Check if we can setup CollNet
   if (comm->collNetSupport > 0) {

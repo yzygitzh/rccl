@@ -20,6 +20,7 @@ typedef enum : uint8_t {
   ncclPatternTreeUp,
   ncclPatternTreeDown,
   ncclPatternTreeUpDown,
+  ncclPatternMSCCL,
   ncclPatternCollTreeUpDown,
   ncclPatternSend,
   ncclPatternRecv
@@ -55,6 +56,8 @@ struct ncclInfo {
   int channelId;
   uint16_t connIndex;
   uint64_t opCount;
+
+  struct mscclWorkInfo mscclInfo;
 };
 
 #endif

@@ -658,4 +658,7 @@ private:
   __device__ void recvSend(int eltN) {
     return LLGenericOp<1, 1, -1, -1>(-1, -1, eltN, false);
   }
+  __device__ void localCopy(intptr_t inpIx, intptr_t outIx, int eltN, bool postOp=false) {
+    return LLGenericOp<0, 0, Input, Output>(inpIx, outIx, eltN, postOp);
+  }
 };

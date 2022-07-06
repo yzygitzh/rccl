@@ -53,6 +53,7 @@ struct ncclDevRedOpFull {
 #define DECL3(func, devredop, type, undef) \
   DECL4(func, RING,    devredop, type, undef) \
   DECL4(func, TREE,    devredop, type, undef) \
+  DECL4(func, MSCCL,    devredop, type, undef) \
   DECL4(func, COLLNET, devredop, type, undef)
 
 #if defined(RCCL_BFLOAT16)
@@ -93,6 +94,8 @@ DECL(Reduce)
 DECL2(AllGather, Sum, /*undefForFloat=*/0)
 DECL(ReduceScatter)
 DECL(AllReduce)
+DECL2(AllToAll, Sum, /*undefForFloat=*/0)
+DECL(CustomCollective)
 DECL5(SendRecv, RING, SIMPLE, Sum, int8_t)
 DECL5(AllToAllPivot, RING, SIMPLE, Sum, int8_t)
 

@@ -29,14 +29,15 @@
 #endif
 
 
-#define NCCL_NUM_FUNCTIONS 5 // SendRecv and AllToAllPivot not included for now
-typedef enum { ncclFuncBroadcast, ncclFuncReduce, ncclFuncAllGather, ncclFuncReduceScatter, ncclFuncAllReduce, ncclFuncSendRecv, ncclFuncSend, ncclFuncRecv, ncclFuncAllToAllPivot, ncclNumFuncs} ncclFunc_t;
+#define NCCL_NUM_FUNCTIONS 7 // Send/Recv not included for now
+typedef enum { ncclFuncBroadcast, ncclFuncReduce, ncclFuncAllGather, ncclFuncReduceScatter, ncclFuncAllReduce, ncclFuncAllToAll, ncclFuncCustomCollective, ncclFuncSendRecv, ncclFuncSend, ncclFuncRecv, ncclFuncAllToAllPivot, ncclNumFuncs} ncclFunc_t;
 extern const char* ncclFuncStr[NCCL_NUM_FUNCTIONS+2];
 
-#define NCCL_NUM_ALGORITHMS 3 // Tree/Ring/CollNet
+#define NCCL_NUM_ALGORITHMS 4 // Tree/Ring/MSCCL/CollNet
 #define NCCL_ALGO_TREE 0
 #define NCCL_ALGO_RING 1
-#define NCCL_ALGO_COLLNET 2
+#define NCCL_ALGO_MSCCL 2
+#define NCCL_ALGO_COLLNET 3
 extern const char* ncclAlgoStr[NCCL_NUM_ALGORITHMS];
 
 #define NCCL_NUM_PROTOCOLS 3 // Simple/LL/LL128
@@ -213,6 +214,8 @@ struct ncclWorkElemHeader {
   uint8_t isLast:1;
 };
 
+#include "msccl.h"
+
 struct ncclWorkElem {
   struct ncclWorkElemHeader header;
   uint8_t regUsed;
@@ -229,6 +232,7 @@ struct ncclWorkElem {
     // Pivot A2A kernel computes chunk size itself.
     // Instead, it needs the number of bidirectional rings.
     size_t pivotA2ANumBiRings;
+    struct mscclWorkElem mscclWork;
   };
   uint32_t root;
   uint8_t bid;
@@ -422,6 +426,8 @@ struct ncclDevComm {
   // Channels, device side
   struct ncclChannel* channels;
 
+  struct mscclDevCommInfo* mscclInfo;
+
 #if defined(ENABLE_NPKIT)
   NpKitEventCollectContext* npKitEventCollectContexts;
   uint64_t* cpuTimestamp;
@@ -443,6 +449,8 @@ struct ncclDevComm {
 struct ncclDevCommAndChannels {
   ncclDevComm comm;
   ncclChannel channels[MAXCHANNELS];
+
+  struct mscclDevCommInfo mscclInfo[1];
 };
 
 #endif

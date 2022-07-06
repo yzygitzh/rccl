@@ -82,14 +82,19 @@ if("${version_mk_text}" MATCHES "PKG_REVISION *:= *([0-9]*)")
 else()
   message(FATAL_ERROR "Failed to parse PKG_REVISION")
 endif()
-if("${NCCL_PATCH}" MATCHES "[0-9][0-9]")
-  set(NCCL_VERSION "${NCCL_MAJOR}${NCCL_MINOR}${NCCL_PATCH}")
+if("${version_mk_text}" MATCHES "MSCCL_VERSION *:= *([0-9]*)")
+  set(MSCCL_VERSION ${CMAKE_MATCH_1})
 else()
-  set(NCCL_VERSION "${NCCL_MAJOR}${NCCL_MINOR}0${NCCL_PATCH}")
+  message(FATAL_ERROR "Failed to parse MSCCL_VERSION")
+endif()
+if("${NCCL_PATCH}" MATCHES "[0-9][0-9]")
+  set(NCCL_VERSION "${NCCL_MAJOR}${NCCL_MINOR}${NCCL_PATCH}${MSCCL_VERSION}")
+else()
+  set(NCCL_VERSION "${NCCL_MAJOR}${NCCL_MINOR}0${NCCL_PATCH}${MSCCL_VERSION}")
 endif()
 
 # Setup VERSION
-set(VERSION_STRING "${NCCL_MAJOR}.${NCCL_MINOR}.${NCCL_PATCH}")
+set(VERSION_STRING "${NCCL_MAJOR}.${NCCL_MINOR}.${NCCL_PATCH}.${MSCCL_VERSION}")
 rocm_setup_version(VERSION ${VERSION_STRING})
 
 list(APPEND CMAKE_PREFIX_PATH
@@ -148,6 +153,7 @@ else()
       src/collectives/device/reduce_scatter.cu
       src/collectives/device/sendrecv.cu
       src/collectives/device/onerank_reduce.cu
+      src/collectives/device/custom_collective.cu
       src/collectives/device/functions.cu)
 endif()
 
@@ -182,6 +188,7 @@ set(CC_SOURCES
     src/collectives/scatter_api.cc
     src/collectives/all_to_all_api.cc
     src/collectives/all_to_allv_api.cc
+    src/collectives/custom_collective.cc
     src/channel.cc
     #src/clique/CliqueManager.cc     # RCCL
     #src/clique/HandleCache.cc       # RCCL

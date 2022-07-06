@@ -339,6 +339,14 @@ __device__ int copyToShmem(T *dst, T const *src, int turn=0) {
   return turn;
 }
 
+template<typename T>
+__device__ void simpleCopy(T *dst, T const *src, int tid, int nthreads) {
+  char* d = (char*) dst;
+  char* s = (char*) src;
+  for (int i = tid; i < sizeof(T); i += nthreads)
+    d[i] = s[i];
+}
+
 template<ncclFunc_t Fn, typename T, typename RedOp, int Algo, int Proto>
 struct RunWorkElement {
   __device__ void run(ncclWorkElem*) {
@@ -380,8 +388,8 @@ struct ncclShmemData {
   uint64_t redOpArgs[NCCL_MAX_DIRECT_ARITY+1];
   struct ncclDevComm comm;
   struct ncclChannel channel;
-  uint64_t pad;
   struct ncclWork work;
+  struct mscclSharedMemoryInfo mscclShmem;
 };
 
 static __device__ void ncclRedopPtrDeref(struct ncclWorkElem* we) {
@@ -410,6 +418,8 @@ extern __device__ struct ncclShmemData *ncclShmem;
 template<ncclFunc_t Fn, typename T, typename RedOp, int Algo, int Proto, int FnIndex, bool COLLTRACE>
 __device__ void ncclKernel(struct ncclDevComm* comm, ncclWorkElem first)  {
   int tid = threadIdx.x;
+  int wid = threadIdx.x/WARP_SIZE;
+  int nWarps = blockDim.x/WARP_SIZE;
   int nthreads = blockDim.x;
   int bid = blockIdx.x;
   __shared__ struct ncclShmemData shmem;
@@ -425,14 +435,39 @@ __device__ void ncclKernel(struct ncclDevComm* comm, ncclWorkElem first)  {
   __syncthreads();
 
   int turn = copyToShmem(&ncclShmem->comm, comm);
-  // get address of channel without incurring indirect load from ncclDevCom::channels
-  ncclChannel *channel = &((ncclDevCommAndChannels*)comm)->channels[bid];
-  turn = copyToShmem(&ncclShmem->channel, channel, turn);
+  ncclChannel *channel;
+  if (Algo == NCCL_ALGO_MSCCL){
+    // get the address without causing a global load
+    struct mscclAlgorithm* mscclAlgo = &((ncclDevCommAndChannels*)comm)->mscclInfo->mscclAlgos[first.mscclWork.mscclAlgoIndex];
+    struct mscclThreadBlock* mscclTB = &mscclAlgo->mscclTBs[bid];
+    // causes a global memory load to channelId. This removes the need for a __syncthreads
+    int channelId = mscclTB->channelId;
+    channel = &((ncclDevCommAndChannels*)comm)->channels[channelId];
+    turn = copyToShmem(&ncclShmem->channel, channel, turn);
 
-  // To optimize for latency, (only) the first operation is passed as argument.
-  if (bid == 0 && first.header.type != ncclWorkTypeUnused) {
-    // Copy first elem to work and zero out the rest
+    turn = copyToShmem(&ncclShmem->mscclShmem.mscclTB, mscclTB, turn);
+    if (wid == 0)
+      ncclShmem->mscclShmem.flags = ((ncclDevCommAndChannels*)comm)->mscclInfo->flags;
+    if (wid == (1 % nWarps))
+      ncclShmem->mscclShmem.scratchBuffer = ((ncclDevCommAndChannels*)comm)->mscclInfo->scratchBuffer;
+    if (wid == (2 % nWarps))
+      ncclShmem->mscclShmem.nchunksPerLoop = mscclAlgo->nchunksPerLoop;
+    if (wid == (3 % nWarps)){
+      ncclShmem->mscclShmem.workIndex = first.mscclWork.workIndex;
+    }
+
+    // MSCCL algorithms always have only one workElement in the queue
     copyToShmem(&ncclShmem->work, &first, tid, nthreads);
+  } else {
+    // get address of channel without incurring indirect load from ncclDevCom::channels
+    channel = &((ncclDevCommAndChannels*)comm)->channels[bid];
+    turn = copyToShmem(&ncclShmem->channel, channel, turn);
+
+    // To optimize for latency, (only) the first operation is passed as argument.
+    if (bid == 0 && first.header.type != ncclWorkTypeUnused) {
+      // Copy first elem to work and zero out the rest
+      copyToShmem(&ncclShmem->work, &first, tid, nthreads);
+    }
   }
   __syncthreads(); // publish ncclShmem
 
@@ -441,7 +476,7 @@ __device__ void ncclKernel(struct ncclDevComm* comm, ncclWorkElem first)  {
   int workFifoIx = ncclShmem->channel.index;
 
   bool skipLoadWork = false, firstLaunch = true;
-  if (bid == 0 && first.header.type != ncclWorkTypeUnused)
+  if ((Algo == NCCL_ALGO_MSCCL || bid == 0) && first.header.type != ncclWorkTypeUnused)
     skipLoadWork = true;
 
   while (true) {
@@ -459,7 +494,9 @@ __device__ void ncclKernel(struct ncclDevComm* comm, ncclWorkElem first)  {
     }
 
     workFifoIx = (workFifoIx + 1)%NCCL_MAX_OPS;
-    if (tid == 0)
+    // With MSCCL, only the designated threadblock should assign channel->index
+    // otherwise, there is a data race on it
+    if (tid == 0 && (Algo != NCCL_ALGO_MSCCL))
       channel->index = workFifoIx; // write back to real channel, not shmem shadow
 
     __syncwarp();
@@ -478,11 +515,12 @@ __device__ void ncclKernel(struct ncclDevComm* comm, ncclWorkElem first)  {
         traceColl(ncclShmem->work.elems[e], 0);
       }
     }
+    // if (tid == 0) printf("entering %d %d index %d channel->index %d ncclShmem->work.header.funcIndex %d %d\n", (int)Algo, (int) bid, (int)ncclShmem->mscclShmem.workIndex, (int) channel->index, (int) ncclShmem->work.header.funcIndex, (int) FnIndex);
     if (ncclShmem->work.header.funcIndex == FnIndex)
       RunWork<Fn, T, RedOp, Algo, Proto>().run(&ncclShmem->work);
     else
       NCCL_CALL_FUNCTIONS(ncclShmem->work.header.funcIndex);
-
+    // if (tid == 0) printf("exiting %d %d index %d channel->index %d ncclShmem->work.header.isLast %d\n", (int)Algo, (int) bid, (int)ncclShmem->mscclShmem.workIndex, (int) channel->index, (int) ncclShmem->work.header.isLast);
     if (ncclShmem->work.header.isLast) break;
     __syncthreads();
     skipLoadWork = false;
@@ -514,6 +552,7 @@ __device__  __attribute__((noinline)) void NCCL_FUNC_NAME(func, algo, proto, dev
 #define IMPL_COLL3(func, devredop, type, ncclType) \
   IMPL_COLL4(func, TREE,    devredop, type, ncclType) \
   IMPL_COLL4(func, RING,    devredop, type, ncclType) \
+  IMPL_COLL4(func, MSCCL,   devredop, type, ncclType) \
   IMPL_COLL4(func, COLLNET, devredop, type, ncclType)
 
 #define IMPL_COLL2(func, devredop) \
