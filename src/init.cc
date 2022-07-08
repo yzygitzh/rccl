@@ -374,7 +374,7 @@ static ncclResult_t commFree(ncclComm_t comm) {
 
   // free up MSCCL allocated scratchPad
   if (comm->mscclHostComm.mscclDevComm.scratchBuffer != NULL && comm->mscclHostComm.scratchBufferSize > 0){
-    CUDACHECK(cudaFree(comm->mscclHostComm.mscclDevComm.scratchBuffer));
+    CUDACHECK(hipFree(comm->mscclHostComm.mscclDevComm.scratchBuffer));
     comm->mscclHostComm.mscclDevComm.scratchBuffer = NULL;
     comm->mscclHostComm.scratchBufferSize = 0;
   }

@@ -318,7 +318,7 @@ ncclResult_t ncclLaunchKernel(ncclComm_t comm) {
 // Launch network proxy
 static ncclResult_t ncclLaunchProxy(struct ncclQueueInfo* eqInfo) {
   // Start the network proxies as soon as the kernel has been launched. We can't
-  // perform any CUDA call between the two or having a cudaFree between the CUDA
+  // perform any CUDA call between the two or having a hipFree between the CUDA
   // launch and the ncclProxyStart call could cause a deadlock.
   // Also, starting the proxies after the CUDA launch seems to be better for
   // performance (latency).
@@ -600,15 +600,15 @@ static ncclResult_t adjustMSCCLScratchPad(struct ncclInfo* info) {
   size_t sizeNeeded = (info->nBytes * (size_t)(mscclAlgo->nScratchChunks)) / (size_t)(mscclAlgo->nchunksPerLoop);
   if (sizeNeeded > mscclInfo->scratchBufferSize){
     if (mscclInfo->scratchBufferSize > 0 && mscclInfo->mscclDevComm.scratchBuffer != NULL){
-      CUDACHECK(cudaFree(mscclInfo->mscclDevComm.scratchBuffer));
+      CUDACHECK(hipFree(mscclInfo->mscclDevComm.scratchBuffer));
     }
     NCCLCHECK(ncclCudaCalloc((char**)&mscclInfo->mscclDevComm.scratchBuffer, sizeNeeded));
     mscclInfo->scratchBufferSize = sizeNeeded;
     // Not accessing any memory location on the device memory, but just getting their address
     // Also make a dependence on the stream so that we wait for the previous call to be finished
     // This hopefully happens very infrequently.
-    CUDACHECK(cudaMemcpyAsync((char**)&(((ncclDevCommAndChannels*)(info->comm->devComm))->mscclInfo->scratchBuffer),
-      (char**)&mscclInfo->mscclDevComm.scratchBuffer, sizeof(char*), cudaMemcpyDefault, info->stream));
+    CUDACHECK(hipMemcpyAsync((char**)&(((ncclDevCommAndChannels*)(info->comm->devComm))->mscclInfo->scratchBuffer),
+      (char**)&mscclInfo->mscclDevComm.scratchBuffer, sizeof(char*), hipMemcpyDefault, info->stream));
   }
   return ncclSuccess;
 }
@@ -750,7 +750,7 @@ comp_next:
     // make sure we reset the msccl flags when when we are almost overflowing the type of workIndex
     if ((info->comm->mscclHostComm.flagsNeedReset) || (info->comm->mscclHostComm.workIndex > (((uint64_t)1 << (8*sizeof(info->comm->mscclHostComm.workIndex))) - 2*NCCL_MAX_OPS-1))) {
       TRACE(NCCL_COLL,"MSCCL: resetting the semaphores");
-      CUDACHECK(cudaMemsetAsync(info->comm->mscclHostComm.mscclDevComm.flags, 0, sizeof(struct mscclFlag) * MSCCL_MAX_NUM_THREAD_BLOCKS_PER_CHANNEL * MAXCHANNELS, info->stream));
+      CUDACHECK(hipMemsetAsync(info->comm->mscclHostComm.mscclDevComm.flags, 0, sizeof(struct mscclFlag) * MSCCL_MAX_NUM_THREAD_BLOCKS_PER_CHANNEL * MAXCHANNELS, info->stream));
       info->comm->mscclHostComm.workIndex = 1; // setting the workIndex back to 1 for next iterations
       info->comm->mscclHostComm.flagsNeedReset = 0;
     }

@@ -25,6 +25,7 @@
 #define NCCL_FUNC4(func, devredop, type, nullify) \
   NCCL_FUNC5(func, TREE,    devredop, type, nullify), \
   NCCL_FUNC5(func, RING,    devredop, type, nullify), \
+  NCCL_FUNC5(func, MSCCL,   devredop, type, nullify), \
   NCCL_FUNC5(func, COLLNET, devredop, type, nullify)
 
 // Must be consistent with ncclDataType_t
@@ -84,6 +85,8 @@ static const __device__ constexpr ncclKernelFunc_t ncclFuncs[]{
   NCCL_FUNCS2B(AllGather),
   NCCL_FUNCS2A(ReduceScatter),
   NCCL_FUNCS2A(AllReduce),
+  NCCL_FUNCS2B(AllToAll),
+  NCCL_FUNCS2A(CustomCollective),
   NCCL_ONERANK_REDUCE_NAME(PreMulSum, int8_t),
   NCCL_ONERANK_REDUCE_NAME(PreMulSum, uint8_t),
   NCCL_ONERANK_REDUCE_NAME(PreMulSum, int32_t),
@@ -119,94 +122,216 @@ struct Caller<f, f + 1>{
   void call(unsigned short funcIndex) noexcept { ncclFuncs[f](); }
 };
 
-static_assert(FUNC_INDEX_P2P == 2710, "Wrong P2P function index");
-static_assert(FUNC_INDEX_ALLTOALL_PIVOT == 2711, "Wrong AllToAllPivot function index");
+static_assert(FUNC_INDEX_P2P == 5050, "Wrong P2P function index");
+static_assert(FUNC_INDEX_ALLTOALL_PIVOT == 5051, "Wrong AllToAllPivot function index");
 
 inline
 __device__
 void NCCL_CALL_FUNCTIONS(unsigned short funcIndex) noexcept {
 #if defined(BUILD_ALLREDUCE_ONLY)
-  if (funcIndex == FUNC_INDEX(ncclFuncAllReduce, ncclSum, ncclFloat32, NCCL_ALGO_RING, NCCL_PROTO_SIMPLE))
-    ncclFunction_AllReduce_RING_SIMPLE_Sum_float();
-  else if (funcIndex == FUNC_INDEX(ncclFuncAllReduce, ncclSum, ncclFloat32, NCCL_ALGO_RING, NCCL_PROTO_LL))
-    ncclFunction_AllReduce_RING_LL_Sum_float();
-  else if (funcIndex == FUNC_INDEX(ncclFuncAllReduce, ncclSum, ncclFloat32, NCCL_ALGO_RING, NCCL_PROTO_LL128))
-    ncclFunction_AllReduce_RING_LL_Sum_float();
-  else if (funcIndex == FUNC_INDEX(ncclFuncAllReduce, ncclSum, ncclFloat32, NCCL_ALGO_TREE, NCCL_PROTO_SIMPLE))
-    ncclFunction_AllReduce_TREE_SIMPLE_Sum_float();
-  else if (funcIndex == FUNC_INDEX(ncclFuncAllReduce, ncclSum, ncclFloat32, NCCL_ALGO_TREE, NCCL_PROTO_LL))
-    ncclFunction_AllReduce_TREE_LL_Sum_float();
-  else if (funcIndex == FUNC_INDEX(ncclFuncAllReduce, ncclSum, ncclFloat32, NCCL_ALGO_COLLNET, NCCL_PROTO_SIMPLE))
-    ncclFunction_AllReduce_COLLNET_SIMPLE_Sum_float();
-  else if (funcIndex == FUNC_INDEX(ncclFuncAllReduce, ncclSum, ncclFloat32, NCCL_ALGO_COLLNET, NCCL_PROTO_LL))
-    ncclFunction_AllReduce_COLLNET_LL_Sum_float();
-  else
-    assert("Unsupported function index");
+  switch (funcIndex) {
+    case FUNC_INDEX(ncclFuncAllReduce, ncclSum, ncclFloat32, NCCL_ALGO_RING, NCCL_PROTO_SIMPLE):
+      ncclFunction_AllReduce_RING_SIMPLE_Sum_float();
+      break;
+    case FUNC_INDEX(ncclFuncAllReduce, ncclSum, ncclFloat32, NCCL_ALGO_RING, NCCL_PROTO_LL):
+      ncclFunction_AllReduce_RING_LL_Sum_float();
+      break;
+    case FUNC_INDEX(ncclFuncAllReduce, ncclSum, ncclFloat32, NCCL_ALGO_RING, NCCL_PROTO_LL128):
+      ncclFunction_AllReduce_RING_LL_Sum_float();
+      break;
+    case FUNC_INDEX(ncclFuncAllReduce, ncclSum, ncclFloat32, NCCL_ALGO_TREE, NCCL_PROTO_SIMPLE):
+      ncclFunction_AllReduce_TREE_SIMPLE_Sum_float();
+      break;
+    case FUNC_INDEX(ncclFuncAllReduce, ncclSum, ncclFloat32, NCCL_ALGO_TREE, NCCL_PROTO_LL):
+      ncclFunction_AllReduce_TREE_LL_Sum_float();
+      break;
+    case FUNC_INDEX(ncclFuncAllReduce, ncclSum, ncclFloat32, NCCL_ALGO_MSCCL, NCCL_PROTO_SIMPLE):
+      ncclFunction_AllReduce_MSCCL_SIMPLE_Sum_float();
+      break;
+    case FUNC_INDEX(ncclFuncAllReduce, ncclSum, ncclFloat32, NCCL_ALGO_MSCCL, NCCL_PROTO_LL):
+      ncclFunction_AllReduce_MSCCL_LL_Sum_float();
+      break;
+    case FUNC_INDEX(ncclFuncAllReduce, ncclSum, ncclFloat32, NCCL_ALGO_COLLNET, NCCL_PROTO_SIMPLE):
+      ncclFunction_AllReduce_COLLNET_SIMPLE_Sum_float();
+      break;
+    case FUNC_INDEX(ncclFuncAllReduce, ncclSum, ncclFloat32, NCCL_ALGO_COLLNET, NCCL_PROTO_LL):
+      ncclFunction_AllReduce_COLLNET_LL_Sum_float();
+      break;
+    default:
+      assert("Unsupported function index");
+      break;
+  }
 #else
-  if (funcIndex < 540) {
-    if (funcIndex % 9 == 0) ncclFunction_Broadcast_TREE_LL_Sum_int8_t();
-    else if (funcIndex % 9 == 1) ncclFunction_Broadcast_TREE_LL_Sum_int8_t();
-    else if (funcIndex % 9 == 2) ncclFunction_Broadcast_TREE_SIMPLE_Sum_int8_t();
-    else if (funcIndex % 9 == 3) ncclFunction_Broadcast_RING_LL_Sum_int8_t();
-    else if (funcIndex % 9 == 4) ncclFunction_Broadcast_RING_LL_Sum_int8_t();
-    else if (funcIndex % 9 == 5) ncclFunction_Broadcast_RING_SIMPLE_Sum_int8_t();
-    else if (funcIndex % 9 == 6) ncclFunction_Broadcast_COLLNET_LL_Sum_int8_t();
-    else if (funcIndex % 9 == 7) ncclFunction_Broadcast_COLLNET_LL_Sum_int8_t();
-    else ncclFunction_Broadcast_COLLNET_SIMPLE_Sum_int8_t();
-  }
-  else if (funcIndex < 1080) Caller<540, 1080>::call(funcIndex);
-  else if (funcIndex < 1620) {
-    if (funcIndex % 9 == 0) ncclFunction_AllGather_TREE_LL_Sum_int8_t();
-    else if (funcIndex % 9 == 1) ncclFunction_AllGather_TREE_LL_Sum_int8_t();
-    else if (funcIndex % 9 == 2) ncclFunction_AllGather_TREE_SIMPLE_Sum_int8_t();
-    else if (funcIndex % 9 == 3) ncclFunction_AllGather_RING_LL_Sum_int8_t();
-    else if (funcIndex % 9 == 4) ncclFunction_AllGather_RING_LL_Sum_int8_t();
-    else if (funcIndex % 9 == 5) ncclFunction_AllGather_RING_SIMPLE_Sum_int8_t();
-    else if (funcIndex % 9 == 6) ncclFunction_AllGather_COLLNET_LL_Sum_int8_t();
-    else if (funcIndex % 9 == 7) ncclFunction_AllGather_COLLNET_LL_Sum_int8_t();
-    else ncclFunction_AllGather_COLLNET_SIMPLE_Sum_int8_t();
-  }
-  else if (funcIndex < 2700) Caller<1620, 2700>::call(funcIndex);
-  else {
-    switch (funcIndex - 2700) {
-      case 0:
-        ncclFunction_OneRankReduce_PreMulSum_int8_t();
-        break;
-      case 1:
-        ncclFunction_OneRankReduce_PreMulSum_uint8_t();
-        break;
-      case 2:
-        ncclFunction_OneRankReduce_PreMulSum_int32_t();
-        break;
-      case 3:
-        ncclFunction_OneRankReduce_PreMulSum_uint32_t();
-        break;
-      case 4:
-        ncclFunction_OneRankReduce_PreMulSum_int64_t();
-        break;
-      case 5:
-        ncclFunction_OneRankReduce_PreMulSum_uint64_t();
-        break;
-      case 6:
-        ncclFunction_OneRankReduce_PreMulSum_half();
-        break;
-      case 7:
-        ncclFunction_OneRankReduce_PreMulSum_float();
-        break;
-      case 8:
-        ncclFunction_OneRankReduce_PreMulSum_double();
-        break;
-      case 9:
-        ncclFunction_OneRankReduce_PreMulSum_rccl_bfloat16();
-        break;
-      case 10:
-        ncclFunction_SendRecv_RING_SIMPLE_Sum_int8_t();
-        break;
-      case 11:
-        ncclFunction_AllToAllPivot_RING_SIMPLE_Sum_int8_t();
-      default:
-        break;
-    }
+  switch (funcIndex / 720) {
+    case 0:
+      switch (funcIndex % 12) {
+        case 0:
+          ncclFunction_Broadcast_TREE_LL_Sum_int8_t();
+          break;
+        case 1:
+          ncclFunction_Broadcast_TREE_LL_Sum_int8_t();
+          break;
+        case 2:
+          ncclFunction_Broadcast_TREE_SIMPLE_Sum_int8_t();
+          break;
+        case 3:
+          ncclFunction_Broadcast_RING_LL_Sum_int8_t();
+          break;
+        case 4:
+          ncclFunction_Broadcast_RING_LL_Sum_int8_t();
+          break;
+        case 5:
+          ncclFunction_Broadcast_RING_SIMPLE_Sum_int8_t();
+          break;
+        case 6:
+          ncclFunction_Broadcast_MSCCL_LL_Sum_int8_t();
+          break;
+        case 7:
+          ncclFunction_Broadcast_MSCCL_LL_Sum_int8_t();
+          break;
+        case 8:
+          ncclFunction_Broadcast_MSCCL_SIMPLE_Sum_int8_t();
+          break;
+        case 9:
+          ncclFunction_Broadcast_COLLNET_LL_Sum_int8_t();
+          break;
+        case 10:
+          ncclFunction_Broadcast_COLLNET_LL_Sum_int8_t();
+          break;
+        default:
+          ncclFunction_Broadcast_COLLNET_SIMPLE_Sum_int8_t();
+          break;
+      }
+      break;
+    case 1:
+      Caller<720, 1440>::call(funcIndex);
+      break;
+    case 2:
+      switch (funcIndex % 12) {
+        case 0:
+          ncclFunction_AllGather_TREE_LL_Sum_int8_t();
+          break;
+        case 1:
+          ncclFunction_AllGather_TREE_LL_Sum_int8_t();
+          break;
+        case 2:
+          ncclFunction_AllGather_TREE_SIMPLE_Sum_int8_t();
+          break;
+        case 3:
+          ncclFunction_AllGather_RING_LL_Sum_int8_t();
+          break;
+        case 4:
+          ncclFunction_AllGather_RING_LL_Sum_int8_t();
+          break;
+        case 5:
+          ncclFunction_AllGather_RING_SIMPLE_Sum_int8_t();
+          break;
+        case 6:
+          ncclFunction_AllGather_MSCCL_LL_Sum_int8_t();
+          break;
+        case 7:
+          ncclFunction_AllGather_MSCCL_LL_Sum_int8_t();
+          break;
+        case 8:
+          ncclFunction_AllGather_MSCCL_SIMPLE_Sum_int8_t();
+          break;
+        case 9:
+          ncclFunction_AllGather_COLLNET_LL_Sum_int8_t();
+          break;
+        case 10:
+          ncclFunction_AllGather_COLLNET_LL_Sum_int8_t();
+          break;
+        default:
+          ncclFunction_AllGather_COLLNET_SIMPLE_Sum_int8_t();
+          break;
+      }
+    case 3:
+    case 4:
+      Caller<2160, 3600>::call(funcIndex);
+      break;
+    case 5:
+      switch (funcIndex % 12) {
+        case 0:
+          ncclFunction_AllToAll_TREE_LL_Sum_int8_t();
+          break;
+        case 1:
+          ncclFunction_AllToAll_TREE_LL_Sum_int8_t();
+          break;
+        case 2:
+          ncclFunction_AllToAll_TREE_SIMPLE_Sum_int8_t();
+          break;
+        case 3:
+          ncclFunction_AllToAll_RING_LL_Sum_int8_t();
+          break;
+        case 4:
+          ncclFunction_AllToAll_RING_LL_Sum_int8_t();
+          break;
+        case 5:
+          ncclFunction_AllToAll_RING_SIMPLE_Sum_int8_t();
+          break;
+        case 6:
+          ncclFunction_AllToAll_MSCCL_LL_Sum_int8_t();
+          break;
+        case 7:
+          ncclFunction_AllToAll_MSCCL_LL_Sum_int8_t();
+          break;
+        case 8:
+          ncclFunction_AllToAll_MSCCL_SIMPLE_Sum_int8_t();
+          break;
+        case 9:
+          ncclFunction_AllToAll_COLLNET_LL_Sum_int8_t();
+          break;
+        case 10:
+          ncclFunction_AllToAll_COLLNET_LL_Sum_int8_t();
+          break;
+        default:
+          ncclFunction_AllToAll_COLLNET_SIMPLE_Sum_int8_t();
+          break;
+      }
+    case 6:
+      Caller<4320, 5040>::call(funcIndex);
+      break;
+    default:
+      switch (funcIndex - 5040) {
+        case 0:
+          ncclFunction_OneRankReduce_PreMulSum_int8_t();
+          break;
+        case 1:
+          ncclFunction_OneRankReduce_PreMulSum_uint8_t();
+          break;
+        case 2:
+          ncclFunction_OneRankReduce_PreMulSum_int32_t();
+          break;
+        case 3:
+          ncclFunction_OneRankReduce_PreMulSum_uint32_t();
+          break;
+        case 4:
+          ncclFunction_OneRankReduce_PreMulSum_int64_t();
+          break;
+        case 5:
+          ncclFunction_OneRankReduce_PreMulSum_uint64_t();
+          break;
+        case 6:
+          ncclFunction_OneRankReduce_PreMulSum_half();
+          break;
+        case 7:
+          ncclFunction_OneRankReduce_PreMulSum_float();
+          break;
+        case 8:
+          ncclFunction_OneRankReduce_PreMulSum_double();
+          break;
+        case 9:
+          ncclFunction_OneRankReduce_PreMulSum_rccl_bfloat16();
+          break;
+        case 10:
+          ncclFunction_SendRecv_RING_SIMPLE_Sum_int8_t();
+          break;
+        case 11:
+          ncclFunction_AllToAllPivot_RING_SIMPLE_Sum_int8_t();
+        default:
+          break;
+      }
+      break;
   }
 #endif
 }

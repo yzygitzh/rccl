@@ -29,7 +29,7 @@
 #endif
 
 
-#define NCCL_NUM_FUNCTIONS 7 // Send/Recv not included for now
+#define NCCL_NUM_FUNCTIONS 7 // SendRecv and AllToAllPivot not included for now
 typedef enum { ncclFuncBroadcast, ncclFuncReduce, ncclFuncAllGather, ncclFuncReduceScatter, ncclFuncAllReduce, ncclFuncAllToAll, ncclFuncCustomCollective, ncclFuncSendRecv, ncclFuncSend, ncclFuncRecv, ncclFuncAllToAllPivot, ncclNumFuncs} ncclFunc_t;
 extern const char* ncclFuncStr[NCCL_NUM_FUNCTIONS+2];
 

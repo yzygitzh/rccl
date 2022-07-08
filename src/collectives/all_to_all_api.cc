@@ -34,8 +34,8 @@ ncclResult_t msccl2DAllToAll(const void *sendbuff, void *recvbuff, size_t sendco
   NCCLCHECK(ncclGroupStart());
   for (int n = 0; n < nNodes; n++)
   {
-    NCCLCHECK(ncclSend(((char *)recvbuff) + n * nGpus * sendcount * ncclTypeSize(datatype), nGpus * sendcount, datatype, n * nGpus + comm->hipDev, comm, stream));
-    NCCLCHECK(ncclRecv(((char *)sendbuff) + n * nGpus * sendcount * ncclTypeSize(datatype), nGpus * sendcount, datatype, n * nGpus + comm->hipDev, comm, stream));
+    NCCLCHECK(ncclSend(((char *)recvbuff) + n * nGpus * sendcount * ncclTypeSize(datatype), nGpus * sendcount, datatype, n * nGpus + comm->cudaDev, comm, stream));
+    NCCLCHECK(ncclRecv(((char *)sendbuff) + n * nGpus * sendcount * ncclTypeSize(datatype), nGpus * sendcount, datatype, n * nGpus + comm->cudaDev, comm, stream));
   }
   NCCLCHECK(ncclGroupEnd());
   CUDACHECK(hipMemcpyAsync(recvbuff, sendbuff, comm->nRanks * sendcount * ncclTypeSize(datatype), hipMemcpyDeviceToDevice, stream));

@@ -153,6 +153,7 @@ else()
       src/collectives/device/reduce_scatter.cu
       src/collectives/device/sendrecv.cu
       src/collectives/device/onerank_reduce.cu
+      src/collectives/device/all_to_all.cu
       src/collectives/device/custom_collective.cu
       src/collectives/device/functions.cu)
 endif()

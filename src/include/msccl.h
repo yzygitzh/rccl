@@ -12,8 +12,8 @@
 #define MSCCL_SLICESTEPS (NCCL_STEPS/4)
 #define MSCCL_CHUNKSTEPS (NCCL_STEPS/2)
 
-static_assert(MAXCHANNELS*MSCCL_MAX_NUM_THREAD_BLOCKS_PER_CHANNEL >= MSCCL_MAX_NUM_THREAD_BLOCKS);
-static_assert(MSCCL_MAX_NUM_STEPS <= 256, "MSCCL interpreter doesn't allow for more than nthreads dependences");
+static_assert(MAXCHANNELS*MSCCL_MAX_NUM_THREAD_BLOCKS_PER_CHANNEL >= MSCCL_MAX_NUM_THREAD_BLOCKS, "MSCCL max number of thread blocks exceeded");
+static_assert(MSCCL_MAX_NUM_STEPS <= 256, "MSCCL interpreter doesn't allow for more than nthreads dependencies");
 
 #define MSCCL_INPUT_BUFFER 0
 #define MSCCL_OUTPUT_BUFFER 1
@@ -163,6 +163,6 @@ struct mscclHostCommInfo {
 };
 
 // Stride copy for 2D alltoall
-cudaError_t strideMemcpyAsync(void* dst, const void* src, const size_t size, const int height, const int width, cudaStream_t stream);
+hipError_t strideMemcpyAsync(void* dst, const void* src, const size_t size, const int height, const int width, hipStream_t stream);
 
 #endif
