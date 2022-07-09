@@ -561,7 +561,10 @@ __device__ void ncclKernel(struct ncclDevComm* comm, ncclWorkElem first)  {
 
   int turn = copyToShmem(&ncclShmem->comm, comm);
   ncclChannel *channel;
-  if (Algo == NCCL_ALGO_MSCCL){
+
+  bool useMsccl = first.pad_0 & 2;
+
+  if (useMsccl){
     // get the address without causing a global load
     struct mscclAlgorithm* mscclAlgo = &((ncclDevCommAndChannels*)comm)->mscclInfo->mscclAlgos[first.mscclWork.mscclAlgoIndex];
     struct mscclThreadBlock* mscclTB = &mscclAlgo->mscclTBs[bid];
@@ -601,7 +604,7 @@ __device__ void ncclKernel(struct ncclDevComm* comm, ncclWorkElem first)  {
   int workFifoIx = ncclShmem->channel.index;
 
   bool skipLoadWork = false, firstLaunch = true;
-  if ((Algo == NCCL_ALGO_MSCCL || bid == 0) && first.header.type != ncclWorkTypeUnused)
+  if ((useMsccl || bid == 0) && first.header.type != ncclWorkTypeUnused)
     skipLoadWork = true;
 
   while (true) {
@@ -621,7 +624,7 @@ __device__ void ncclKernel(struct ncclDevComm* comm, ncclWorkElem first)  {
     workFifoIx = (workFifoIx + 1)%NCCL_MAX_OPS;
     // With MSCCL, only the designated threadblock should assign channel->index
     // otherwise, there is a data race on it
-    if (tid == 0 && (Algo != NCCL_ALGO_MSCCL))
+    if (tid == 0 && !useMsccl)
       channel->index = workFifoIx; // write back to real channel, not shmem shadow
 
     __syncwarp();
