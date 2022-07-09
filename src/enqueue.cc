@@ -137,7 +137,7 @@ static ncclResult_t getNextOp(struct ncclChannel* channel, struct ncclWork** wor
   memset(w, 0, sizeof(struct ncclWork));
   // Initialize with work elem if provided
   if (base) memcpy(w->elems, base, sizeof(struct ncclWorkElem));
-  if (!base) w->elems->mscclWork.mscclAlgoIndex = -1; // make sure no msccl algo is used in case this is an empty work
+  if (!base) w->elems->pad_0 ^= 2; // make sure no msccl algo is used in case this is an empty work
   channel->workFifoTail++;
   channel->workCount++;
   if (work) *work = w;
@@ -155,9 +155,12 @@ static ncclResult_t setupLaunch(struct ncclQueueInfo* eqInfo, int usingCudaGraph
   struct mscclAlgorithm* mscclAlgo = NULL;
   if (eqInfo->elemList->count() == 1) {
     auto w = &eqInfo->elemList->begin()->work;
-    int mscclAlgoIndex = w->elems->mscclWork.mscclAlgoIndex;
-    if (w->header.type == ncclWorkTypeColl && mscclAlgoIndex >= 0)
-      mscclAlgo = &comm->mscclHostComm.mscclDevComm.mscclAlgos[mscclAlgoIndex];
+    // Only when MSCCL is enabled
+    if (w->elems->pad_0 & 2) {
+      int mscclAlgoIndex = w->elems->mscclWork.mscclAlgoIndex;
+      if (w->header.type == ncclWorkTypeColl && mscclAlgoIndex >= 0)
+        mscclAlgo = &comm->mscclHostComm.mscclDevComm.mscclAlgos[mscclAlgoIndex];
+    }
   }
 
   // Only launch blocks where we have work to do.
@@ -323,7 +326,7 @@ static ncclResult_t ncclLaunchProxy(struct ncclQueueInfo* eqInfo) {
   // Also, starting the proxies after the CUDA launch seems to be better for
   // performance (latency).
   ncclComm_t comm = eqInfo->comm;
-  if (eqInfo->maxChannels == 0 && eqInfo->elemList->begin()->work.elems->mscclWork.mscclAlgoIndex == -1) return ncclSuccess;
+  if (eqInfo->maxChannels == 0 && (eqInfo->elemList->count() == 0 || (eqInfo->elemList->begin()->work.elems->pad_0 & 2) == 0)) return ncclSuccess;
 
   for (int r=0; r<eqInfo->maxChannels; r++) {
     struct ncclChannel* channel = comm->channels+r;
@@ -628,7 +631,9 @@ comp_next:
   if (info->algorithm == NCCL_ALGO_MSCCL)
     NCCLCHECK(adjustMSCCLScratchPad(info));
 
-  if (info->comm->topo->pivotA2ANumBiRings == 3 ) work->pad_0 = 1;
+  work->pad_0 = 0;
+  if (info->comm->topo->pivotA2ANumBiRings == 3 ) work->pad_0 |= 1;
+  if (info->algorithm == NCCL_ALGO_MSCCL) work->pad_0 |= 2;
   work->opCount = info->opCount;
   work->header.type = ncclWorkTypeColl;
   work->sendbuff = info->sendbuff;
@@ -639,7 +644,9 @@ comp_next:
   work->header.nWarps = info->nThreads / info->comm->WarpSize;
   work->redOpArg = info->opFull.scalarArg;
   work->redOpArgIsPtr = info->opFull.scalarArgIsPtr;
-  work->mscclWork.mscclAlgoIndex = info->mscclInfo.mscclAlgoIndex;
+  if (info->algorithm == NCCL_ALGO_MSCCL) {
+    work->mscclWork.mscclAlgoIndex = info->mscclInfo.mscclAlgoIndex;
+  }
   if (info->comm->nRanks == 1) {
     // one-rank reduce index
     work->header.funcIndex = FUNC_INDEX_P2P - ncclNumTypes + int(info->datatype);
@@ -727,10 +734,13 @@ comp_next:
     return ncclInternalError;
   }
 
+#if defined(__HIP_PLATFORM_HCC__) || defined(__HCC__) || defined(__HIPCC__)
+#else
   if (info->protocol == NCCL_PROTO_SIMPLE && (chunkSize % ((info->nThreads-WARP_SIZE)*sizeof(uint64_t)/ncclTypeSize(info->datatype))) != 0){
     WARN("chunkSize (%d) should be divisble by (nthreads-WARP_SIZE) (%d) for Simple protocol", chunkSize, info->nThreads-WARP_SIZE);
     return ncclInternalError;
   }
+#endif
 
   if (info->algorithm == NCCL_ALGO_MSCCL) {
     int mscclMaxAllowedCount = 0;
@@ -1236,17 +1246,19 @@ ncclResult_t ncclEnqueueCollKernel(struct ncclComm* comm, struct ncclQueueElem* 
   struct ncclWork* work = &eqElem->work;
   struct ncclWorkElem* elem = work->elems;
   struct ncclProxyOp* proxyOp = &eqElem->proxyOp;
-  int mscclAlgoIndex = elem->mscclWork.mscclAlgoIndex;
-  if (mscclAlgoIndex >= 0){
-    // short circuit and only save proxy
-    struct mscclAlgorithm* mscclAlgo = &comm->mscclHostComm.mscclDevComm.mscclAlgos[mscclAlgoIndex];
-    proxyOp->opCount = comm->collOpCount;
-    for (int ch = 0; ch < mscclAlgo->nChannels; ch++){
-      proxyOp->channelId = ch;
-      if (proxyOp->nsteps && mscclAlgo->needsProxy) NCCLCHECK(ncclProxySaveColl(comm, proxyOp, comm->nRanks, &elem->mscclWork));
+  if (elem->pad_0 & 2) {
+    int mscclAlgoIndex = elem->mscclWork.mscclAlgoIndex;
+    if (mscclAlgoIndex >= 0){
+      // short circuit and only save proxy
+      struct mscclAlgorithm* mscclAlgo = &comm->mscclHostComm.mscclDevComm.mscclAlgos[mscclAlgoIndex];
+      proxyOp->opCount = comm->collOpCount;
+      for (int ch = 0; ch < mscclAlgo->nChannels; ch++){
+        proxyOp->channelId = ch;
+        if (proxyOp->nsteps && mscclAlgo->needsProxy) NCCLCHECK(ncclProxySaveColl(comm, proxyOp, comm->nRanks, &elem->mscclWork));
+      }
+      comm->collOpCount++;
+      return ncclSuccess;
     }
-    comm->collOpCount++;
-    return ncclSuccess;
   }
 
   int nChannels = elem->nChannels;

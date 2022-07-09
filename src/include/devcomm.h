@@ -221,6 +221,8 @@ struct ncclWorkElem {
   uint8_t regUsed;
   uint8_t direct;
   uint8_t redOpArgIsPtr;
+  // 0-th bit: whether to use TreeSplit in LL all-reduce
+  // 1-th bit: whether MSCCL is enabled
   uint8_t pad_0;
 
   const void * sendbuff;

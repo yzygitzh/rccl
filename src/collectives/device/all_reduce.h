@@ -717,7 +717,7 @@ struct RunWorkElement<ncclFuncAllReduce, T, RedOp, NCCL_ALGO_RING, NCCL_PROTO_LL
 template<typename T, typename RedOp>
 struct RunWorkElement<ncclFuncAllReduce, T, RedOp, NCCL_ALGO_TREE, NCCL_PROTO_LL> {
   __device__ __attribute__((noinline)) void run(ncclWorkElem *args) {
-    if (args->pad_0 == 0) runTreeUpDown<T, RedOp, ProtoLL>(args);
+    if ((args->pad_0 & 1) == 0) runTreeUpDown<T, RedOp, ProtoLL>(args);
     else runTreeSplit<T, RedOp, ProtoLL>(args);
   }
 };
