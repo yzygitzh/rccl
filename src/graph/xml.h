@@ -59,6 +59,7 @@ ncclResult_t ncclTopoTrimXml(struct ncclXml* xml);
 /* msccl file loaders */
 ncclResult_t mscclGetXmlAlgoFromFile(const char* xmlGraphFile, struct ncclXml* xml);
 ncclResult_t mscclGetXmlConfigFromFile(const char* xmlGraphFile, struct ncclXml* xml);
+ncclResult_t ncclTopoGetStrFromSys(const char* path, const char* fileName, char* strValue);
 
 /**************/
 /* XML Struct */

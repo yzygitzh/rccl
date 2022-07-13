@@ -5,8 +5,6 @@ Full documentation for RCCL is available at [https://rccl.readthedocs.io](https:
 ## (Unreleased) RCCL-2.12.10
 ### Added
 - Compatibility with NCCL 2.12.10
-- Changing CMake exported target name from rccl to roc::rccl. This aligns RCCL to other ROCm
-  components. Users may need to update their build systems. 
 - Packages for test and benchmark executables on all supported OSes using CPack.
 - Adding custom signal handler - opt-in with RCCL_ENABLE_SIGNALHANDLER=1
   - Additional details provided if Binary File Descriptor library (BFD) is pre-installed
@@ -15,6 +13,12 @@ Full documentation for RCCL is available at [https://rccl.readthedocs.io](https:
     refer to the interface documentation for details.
   - To avoid potential deadlocks, user might have to set an environment variables increasing
     the number of hardware queues (e.g. export GPU_MAX_HW_QUEUES=16)
+- Adding support for reusing ports in NET/IB channels
+  - Opt-in with NCCL_IB_SOCK_CLIENT_PORT_REUSE=1 and NCCL_IB_SOCK_SERVER_PORT_REUSE=1
+  - When "Call to bind failed : Address already in use" error happens in large-scale AlltoAll
+    (e.g., >=64 MI200 nodes), users are suggested to opt-in either one or both of the options
+    to resolve the massive port usage issue
+  - Avoid using NCCL_IB_SOCK_SERVER_PORT_REUSE when NCCL_NCHANNELS_PER_NET_PEER is tuned >1
 ### Removed
 - Removed experimental clique-based kernels
 
