@@ -19,7 +19,7 @@
 
 #define NCCL_FUNC5(func, algo, devredop, type, nullify) \
   MACRO_IF(nullify, nullptr, NCCL_FUNC_NAME(func, algo, LL,     devredop, type)), \
-  MACRO_IF(nullify, nullptr, NCCL_FUNC_NAME(func, algo, LL,  devredop, type)), \
+  MACRO_IF(nullify, nullptr, NCCL_FUNC_NAME(func, algo, LL128,  devredop, type)), \
   MACRO_IF(nullify, nullptr, NCCL_FUNC_NAME(func, algo, SIMPLE, devredop, type))
 
 #define NCCL_FUNC4(func, devredop, type, nullify) \
@@ -137,7 +137,7 @@ void NCCL_CALL_FUNCTIONS(unsigned short funcIndex) noexcept {
       ncclFunction_AllReduce_RING_LL_Sum_float();
       break;
     case FUNC_INDEX(ncclFuncAllReduce, ncclSum, ncclFloat32, NCCL_ALGO_RING, NCCL_PROTO_LL128):
-      ncclFunction_AllReduce_RING_LL_Sum_float();
+      ncclFunction_AllReduce_RING_LL128_Sum_float();
       break;
     case FUNC_INDEX(ncclFuncAllReduce, ncclSum, ncclFloat32, NCCL_ALGO_TREE, NCCL_PROTO_SIMPLE):
       ncclFunction_AllReduce_TREE_SIMPLE_Sum_float();
@@ -145,17 +145,26 @@ void NCCL_CALL_FUNCTIONS(unsigned short funcIndex) noexcept {
     case FUNC_INDEX(ncclFuncAllReduce, ncclSum, ncclFloat32, NCCL_ALGO_TREE, NCCL_PROTO_LL):
       ncclFunction_AllReduce_TREE_LL_Sum_float();
       break;
+    case FUNC_INDEX(ncclFuncAllReduce, ncclSum, ncclFloat32, NCCL_ALGO_TREE, NCCL_PROTO_LL128):
+      ncclFunction_AllReduce_TREE_LL128_Sum_float();
+      break;
     case FUNC_INDEX(ncclFuncAllReduce, ncclSum, ncclFloat32, NCCL_ALGO_MSCCL, NCCL_PROTO_SIMPLE):
       ncclFunction_AllReduce_MSCCL_SIMPLE_Sum_float();
       break;
     case FUNC_INDEX(ncclFuncAllReduce, ncclSum, ncclFloat32, NCCL_ALGO_MSCCL, NCCL_PROTO_LL):
       ncclFunction_AllReduce_MSCCL_LL_Sum_float();
       break;
+    case FUNC_INDEX(ncclFuncAllReduce, ncclSum, ncclFloat32, NCCL_ALGO_MSCCL, NCCL_PROTO_LL128):
+      ncclFunction_AllReduce_MSCCL_LL128_Sum_float();
+      break;
     case FUNC_INDEX(ncclFuncAllReduce, ncclSum, ncclFloat32, NCCL_ALGO_COLLNET, NCCL_PROTO_SIMPLE):
       ncclFunction_AllReduce_COLLNET_SIMPLE_Sum_float();
       break;
     case FUNC_INDEX(ncclFuncAllReduce, ncclSum, ncclFloat32, NCCL_ALGO_COLLNET, NCCL_PROTO_LL):
       ncclFunction_AllReduce_COLLNET_LL_Sum_float();
+      break;
+    case FUNC_INDEX(ncclFuncAllReduce, ncclSum, ncclFloat32, NCCL_ALGO_COLLNET, NCCL_PROTO_LL128):
+      ncclFunction_AllReduce_COLLNET_LL128_Sum_float();
       break;
     default:
       assert("Unsupported function index");
@@ -169,7 +178,7 @@ void NCCL_CALL_FUNCTIONS(unsigned short funcIndex) noexcept {
           ncclFunction_Broadcast_TREE_LL_Sum_int8_t();
           break;
         case 1:
-          ncclFunction_Broadcast_TREE_LL_Sum_int8_t();
+          ncclFunction_Broadcast_TREE_LL128_Sum_int8_t();
           break;
         case 2:
           ncclFunction_Broadcast_TREE_SIMPLE_Sum_int8_t();
@@ -178,7 +187,7 @@ void NCCL_CALL_FUNCTIONS(unsigned short funcIndex) noexcept {
           ncclFunction_Broadcast_RING_LL_Sum_int8_t();
           break;
         case 4:
-          ncclFunction_Broadcast_RING_LL_Sum_int8_t();
+          ncclFunction_Broadcast_RING_LL128_Sum_int8_t();
           break;
         case 5:
           ncclFunction_Broadcast_RING_SIMPLE_Sum_int8_t();
@@ -187,7 +196,7 @@ void NCCL_CALL_FUNCTIONS(unsigned short funcIndex) noexcept {
           ncclFunction_Broadcast_MSCCL_LL_Sum_int8_t();
           break;
         case 7:
-          ncclFunction_Broadcast_MSCCL_LL_Sum_int8_t();
+          ncclFunction_Broadcast_MSCCL_LL128_Sum_int8_t();
           break;
         case 8:
           ncclFunction_Broadcast_MSCCL_SIMPLE_Sum_int8_t();
@@ -196,7 +205,7 @@ void NCCL_CALL_FUNCTIONS(unsigned short funcIndex) noexcept {
           ncclFunction_Broadcast_COLLNET_LL_Sum_int8_t();
           break;
         case 10:
-          ncclFunction_Broadcast_COLLNET_LL_Sum_int8_t();
+          ncclFunction_Broadcast_COLLNET_LL128_Sum_int8_t();
           break;
         default:
           ncclFunction_Broadcast_COLLNET_SIMPLE_Sum_int8_t();
@@ -212,7 +221,7 @@ void NCCL_CALL_FUNCTIONS(unsigned short funcIndex) noexcept {
           ncclFunction_AllGather_TREE_LL_Sum_int8_t();
           break;
         case 1:
-          ncclFunction_AllGather_TREE_LL_Sum_int8_t();
+          ncclFunction_AllGather_TREE_LL128_Sum_int8_t();
           break;
         case 2:
           ncclFunction_AllGather_TREE_SIMPLE_Sum_int8_t();
@@ -221,7 +230,7 @@ void NCCL_CALL_FUNCTIONS(unsigned short funcIndex) noexcept {
           ncclFunction_AllGather_RING_LL_Sum_int8_t();
           break;
         case 4:
-          ncclFunction_AllGather_RING_LL_Sum_int8_t();
+          ncclFunction_AllGather_RING_LL128_Sum_int8_t();
           break;
         case 5:
           ncclFunction_AllGather_RING_SIMPLE_Sum_int8_t();
@@ -230,7 +239,7 @@ void NCCL_CALL_FUNCTIONS(unsigned short funcIndex) noexcept {
           ncclFunction_AllGather_MSCCL_LL_Sum_int8_t();
           break;
         case 7:
-          ncclFunction_AllGather_MSCCL_LL_Sum_int8_t();
+          ncclFunction_AllGather_MSCCL_LL128_Sum_int8_t();
           break;
         case 8:
           ncclFunction_AllGather_MSCCL_SIMPLE_Sum_int8_t();
@@ -239,7 +248,7 @@ void NCCL_CALL_FUNCTIONS(unsigned short funcIndex) noexcept {
           ncclFunction_AllGather_COLLNET_LL_Sum_int8_t();
           break;
         case 10:
-          ncclFunction_AllGather_COLLNET_LL_Sum_int8_t();
+          ncclFunction_AllGather_COLLNET_LL128_Sum_int8_t();
           break;
         default:
           ncclFunction_AllGather_COLLNET_SIMPLE_Sum_int8_t();
@@ -255,7 +264,7 @@ void NCCL_CALL_FUNCTIONS(unsigned short funcIndex) noexcept {
           ncclFunction_AllToAll_TREE_LL_Sum_int8_t();
           break;
         case 1:
-          ncclFunction_AllToAll_TREE_LL_Sum_int8_t();
+          ncclFunction_AllToAll_TREE_LL128_Sum_int8_t();
           break;
         case 2:
           ncclFunction_AllToAll_TREE_SIMPLE_Sum_int8_t();
@@ -264,7 +273,7 @@ void NCCL_CALL_FUNCTIONS(unsigned short funcIndex) noexcept {
           ncclFunction_AllToAll_RING_LL_Sum_int8_t();
           break;
         case 4:
-          ncclFunction_AllToAll_RING_LL_Sum_int8_t();
+          ncclFunction_AllToAll_RING_LL128_Sum_int8_t();
           break;
         case 5:
           ncclFunction_AllToAll_RING_SIMPLE_Sum_int8_t();
@@ -273,7 +282,7 @@ void NCCL_CALL_FUNCTIONS(unsigned short funcIndex) noexcept {
           ncclFunction_AllToAll_MSCCL_LL_Sum_int8_t();
           break;
         case 7:
-          ncclFunction_AllToAll_MSCCL_LL_Sum_int8_t();
+          ncclFunction_AllToAll_MSCCL_LL128_Sum_int8_t();
           break;
         case 8:
           ncclFunction_AllToAll_MSCCL_SIMPLE_Sum_int8_t();
@@ -282,7 +291,7 @@ void NCCL_CALL_FUNCTIONS(unsigned short funcIndex) noexcept {
           ncclFunction_AllToAll_COLLNET_LL_Sum_int8_t();
           break;
         case 10:
-          ncclFunction_AllToAll_COLLNET_LL_Sum_int8_t();
+          ncclFunction_AllToAll_COLLNET_LL128_Sum_int8_t();
           break;
         default:
           ncclFunction_AllToAll_COLLNET_SIMPLE_Sum_int8_t();
@@ -389,7 +398,7 @@ class ncclFunction {
   }
 //  traceData(int16_t data2, uint32_t data4, uint64_t data8_0, uint64_t data8_1)
 #define traceData(data2, data4, data8_0, data8_1) { \
-    uint32_t pos = __atomic_fetch_add(ncclShmem->comm.collTraceTail, 1, __ATOMIC_SEQ_CST)%COLLTRACE_NUM_ITEMS; \
+    uint32_t pos = atomicAdd(ncclShmem->comm.collTraceTail, 1)%COLLTRACE_NUM_ITEMS; \
     ncclShmem->comm.collTrace[pos].bid = blockIdx.x; \
     ncclShmem->comm.collTrace[pos].timeStamp = __builtin_amdgcn_s_memrealtime(); \
     ncclShmem->comm.collTrace[pos].funcIndex = data2; \
@@ -506,16 +515,16 @@ struct ncclShmemGroup {
 
 struct ncclShmemData {
   union {
-    uint64_t ll128warp[NCCL_MAX_GROUPS][NCCL_MAX_GROUPS];
     struct ncclShmemGroup groups[NCCL_MAX_GROUPS];
   };
-  uint32_t sync[NCCL_MAX_GROUPS];
   uint64_t redOpArgs[NCCL_MAX_DIRECT_ARITY+1];
   struct ncclDevComm comm;
   struct ncclChannel channel;
+  uint64_t pad;
   struct ncclWork work;
   struct mscclSharedMemoryInfo mscclShmem;
 };
+static_assert(offsetof(struct ncclShmemData, work)%16 == 0, "shmem.work needs to be 16B aligned");
 
 static __device__ void ncclRedopPtrDeref(struct ncclWorkElem* we) {
   if (we->header.type != ncclWorkTypeUnused && we->redOpArgIsPtr) {
@@ -675,6 +684,7 @@ __device__  __attribute__((noinline)) void NCCL_FUNC_NAME(func, algo, proto, dev
 // Only generate inline kernels for LL
 #define IMPL_COLL4(func, algo, devredop, type, ncclType) \
   IMPL_COLL_FUNC(func, algo, LL,     devredop, type) \
+  IMPL_COLL_FUNC(func, algo, LL128,  devredop, type) \
   IMPL_COLL_FUNC(func, algo, SIMPLE, devredop, type) \
 
 #define IMPL_COLL3(func, devredop, type, ncclType) \
