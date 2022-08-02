@@ -17,7 +17,6 @@
 namespace {
   template<typename T, typename RedOp, typename Proto>
   __device__ __forceinline__ void runInterpreter(ncclWorkElem *args, int sizeMultiplier) {
-    return;
     const int tid = threadIdx.x;
     const int nthreads = args->header.nWarps*WARP_SIZE;
     const int bid = blockIdx.x;
