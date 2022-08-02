@@ -4,7 +4,7 @@
  *
  * See LICENSE.txt for license information
  ************************************************************************/
-
+#if 0
 #include "devcomm.h"
 #include "collectives.h"
 #include "reduce_kernel.h"
@@ -59,3 +59,4 @@ INSTANTIATE(PreMulSum, rccl_bfloat16)
 #endif
 INSTANTIATE(PreMulSum, float)
 INSTANTIATE(PreMulSum, double)
+#endif

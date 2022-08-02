@@ -488,6 +488,16 @@ struct RunWorkElement {
   }
 };
 
+
+template<ncclFunc_t Fn, typename T, typename RedOp>
+struct RunWorkMSCCL {
+  // A shortcut for MSCCL work since we are for sure running one kernel at a time
+  __device__ __forceinline__ void run(ncclWork *w) {
+    ncclFunction_AllReduce_MSCCL_LL_Sum_float();
+    //RunWorkElement<Fn, T, RedOp, NCCL_ALGO_MSCCL, NCCL_PROTO_LL>().run(&w->elems[0]);
+  }
+};
+
 template<ncclFunc_t Fn, typename T, typename RedOp, int Algo, int Proto>
 struct RunWork {
   // This __forceinline__ is necessary. The compiler was inserting a function call
@@ -595,6 +605,9 @@ __device__ void ncclKernel(struct ncclDevComm* comm, ncclWorkElem first)  {
 
     // MSCCL algorithms always have only one workElement in the queue
     copyToShmem(&ncclShmem->work, &first, tid, nthreads);
+    __syncthreads(); // publish ncclShmem
+    RunWorkMSCCL<Fn, T, RedOp>().run(&ncclShmem->work);
+    return;    
   } else {
     // get address of channel without incurring indirect load from ncclDevCom::channels
     channel = &((ncclDevCommAndChannels*)comm)->channels[bid];

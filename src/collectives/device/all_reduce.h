@@ -15,6 +15,7 @@
 #include "npkit/npkit.h"
 #endif
 
+#if 0
 namespace {
   template<typename T, typename RedOp, typename Proto>
   __device__ __attribute__((noinline)) void runRing(ncclWorkElem *args) {
@@ -285,7 +286,6 @@ namespace {
           ncclShmem->comm.npKitEventCollectContexts + npKitCtxIdx);
     }
 #endif
-
     if (loopSize > size)
       chunkSize = divUp((int)size, int(nChannels*minChunkSize))*int(minChunkSize);
 
@@ -393,7 +393,6 @@ namespace {
           ncclShmem->comm.npKitEventCollectContexts + npKitCtxIdx);
     }
 #endif
-
   }
 
   template<typename T, typename RedOp, typename Proto>
@@ -455,7 +454,6 @@ namespace {
           ncclShmem->comm.npKitEventCollectContexts + npKitCtxIdx);
     }
 #endif
-
     if (loopSize > size)
       chunkSize = divUp((int)size, nChannels*int(minChunkSize))*int(minChunkSize);
 
@@ -590,7 +588,6 @@ namespace {
           ncclShmem->comm.npKitEventCollectContexts + npKitCtxIdx);
     }
 #endif
-
   }
 }
 
@@ -737,8 +734,9 @@ struct RunWorkElement<ncclFuncAllReduce, T, RedOp, NCCL_ALGO_TREE, NCCL_PROTO_LL
     //LAUNCH_CLIQUE_KERNEL(AllReduceCliqueSplitKernel, RedOp, T, args);
   }
 };
+#endif
 
-template<typename T, typename RedOp>
+/*template<typename T, typename RedOp>
 struct RunWorkElement<ncclFuncAllReduce, T, RedOp, NCCL_ALGO_MSCCL, NCCL_PROTO_SIMPLE> {
   __device__ __forceinline__ void run(ncclWorkElem *args) {
     using Proto = ProtoSimple<MSCCL_CHUNKSTEPS/MSCCL_SLICESTEPS, MSCCL_SLICESTEPS>;
@@ -751,11 +749,11 @@ struct RunWorkElement<ncclFuncAllReduce, T, RedOp, NCCL_ALGO_MSCCL, NCCL_PROTO_L
   __device__ __forceinline__ void run(ncclWorkElem *args) {
     runInterpreter<T, RedOp, ProtoLL128>(args, 1);
   }
-};
+};*/
 
-template<typename T, typename RedOp>
-struct RunWorkElement<ncclFuncAllReduce, T, RedOp, NCCL_ALGO_MSCCL, NCCL_PROTO_LL> {
+template<>
+struct RunWorkElement<ncclFuncAllReduce, float, FuncSum<float>, NCCL_ALGO_MSCCL, NCCL_PROTO_LL> {
   __device__ __forceinline__ void run(ncclWorkElem *args) {
-    runInterpreter<T, RedOp, ProtoLL>(args, 1);
+    runInterpreter<float, FuncSum<float>, ProtoLL>(args, 1);
   }
 };

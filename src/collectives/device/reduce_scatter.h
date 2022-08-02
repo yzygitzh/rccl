@@ -8,6 +8,7 @@
 #include "devcomm.h"
 #include "collectives.h"
 #include "primitives.h"
+#if 0
 #include "msccl_interpreter.h"
 
 namespace {
@@ -111,3 +112,4 @@ struct RunWorkElement<ncclFuncReduceScatter, T, RedOp, NCCL_ALGO_MSCCL, NCCL_PRO
     runInterpreter<T, RedOp, ProtoLL>(args, ncclShmem->comm.nRanks);
   }
 };
+#endif

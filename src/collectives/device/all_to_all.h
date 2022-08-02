@@ -7,6 +7,7 @@
 #include "devcomm.h"
 #include "primitives.h"
 #include "collectives.h"
+#if 0
 #include "msccl_interpreter.h"
 
 template<int ALGO, typename T, typename RedOp>
@@ -30,3 +31,4 @@ struct RunWorkElement<ncclFuncAllToAll, T, RedOp, ALGO, NCCL_PROTO_LL> {
     runInterpreter<T, RedOp, ProtoLL>(args, ncclShmem->comm.nRanks);
   }
 };
+#endif

@@ -4,6 +4,7 @@
  * See LICENSE.txt for license information
  ************************************************************************/
 
+#if 1
 #include "msccl_interpreter.h"
 
 template<int ALGO, typename T, typename RedOp>
@@ -27,3 +28,4 @@ struct RunWorkElement<ncclFuncCustomCollective, T, RedOp, ALGO, NCCL_PROTO_LL> {
     runInterpreter<T, RedOp, ProtoLL>(args, 1);
   }
 };
+#endif

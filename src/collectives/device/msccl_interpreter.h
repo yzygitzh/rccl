@@ -17,6 +17,7 @@
 namespace {
   template<typename T, typename RedOp, typename Proto>
   __device__ __forceinline__ void runInterpreter(ncclWorkElem *args, int sizeMultiplier) {
+    return;
     const int tid = threadIdx.x;
     const int nthreads = args->header.nWarps*WARP_SIZE;
     const int bid = blockIdx.x;
@@ -50,6 +51,7 @@ namespace {
     // this still needs more work. when we make a way around the queue, the flag might have been set to undesired values. will be fixed in subsequent versions.
     const int64_t workIndex = ncclShmem->mscclShmem.workIndex;
     volatile struct mscclFlag* mscclFlags = ncclShmem->mscclShmem.flags;
+//    for (int rept = 0; rept < 100; rept++)
     for (ssize_t gridOffset = 0, iter = 0; gridOffset < sizePerMscclChunk; gridOffset += chunkSize, iter++) {
       ssize_t realChunkSize;
       if (Proto::Id == NCCL_PROTO_SIMPLE) {

@@ -9,7 +9,7 @@
 #include "collectives.h"
 #include "primitives.h"
 #include "msccl_interpreter.h"
-
+#if 0
 namespace {
   template<typename T, typename RedOp, typename Proto>
   __device__ __attribute__((noinline)) void runRing(ncclWorkElem *args) {
@@ -92,13 +92,13 @@ struct RunWorkElement<ncclFuncAllGather, T, RedOp, NCCL_ALGO_RING, NCCL_PROTO_LL
     runRing<T, RedOp, ProtoLL>(args);
   }
 };
-
 template<typename T, typename RedOp>
 struct RunWorkElement<ncclFuncAllGather, T, RedOp, NCCL_ALGO_RING, NCCL_PROTO_LL128> {
   __device__ __attribute__((noinline)) void run(ncclWorkElem *args) {
     runRing<T, RedOp, ProtoLL128>(args);
   }
 };
+#endif
 
 template<typename T, typename RedOp>
 struct RunWorkElement<ncclFuncAllGather, T, RedOp, NCCL_ALGO_MSCCL, NCCL_PROTO_SIMPLE> {

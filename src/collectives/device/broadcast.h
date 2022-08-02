@@ -7,6 +7,7 @@
 #include "devcomm.h"
 #include "collectives.h"
 #include "primitives.h"
+#if 0
 #include "msccl_interpreter.h"
 
 namespace {
@@ -122,3 +123,4 @@ struct RunWorkElement<ncclFuncBroadcast, T, RedOp, NCCL_ALGO_MSCCL, NCCL_PROTO_L
     runInterpreter<T, RedOp, ProtoLL>(args, 1);
   }
 };
+#endif
