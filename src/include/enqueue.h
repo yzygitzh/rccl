@@ -11,6 +11,7 @@
 #include "comm.h"
 #include "group.h"
 #include "collectives.h"
+#include "../collectives/device/synchronize.h"
 
 #define NCCL_MIN_CHANNEL_SIZE (NCCL_LL_THREAD_THRESHOLD*64)
 #define NCCL_AGG_CHANNEL_SIZE (1LL << 21) /* 2 MiB, ideal per-channel size to fully utilize bandwidth */
@@ -27,6 +28,7 @@ ncclResult_t ncclRecordEvents(struct ncclComm* comm);
 ncclResult_t ncclLaunchReset(ncclComm_t comm);
 ncclResult_t ncclSetupP2pKernel(struct ncclInfo* info);
 ncclResult_t ncclSetupAsyncKernels(struct ncclComm* comm);
+ncclResult_t synchronize(int workIndex, ncclComm* comm, cudaStream_t stream);
 template<int USING_CUDA_GRAPH>
 void HIPRT_CB ncclEnqueueHostSetup(void* arg);
 ncclResult_t ncclGetCudaGraph(ncclComm_t comm, hipGraph_t* graph);

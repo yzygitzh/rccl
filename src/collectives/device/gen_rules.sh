@@ -15,6 +15,13 @@ fi
 
 targets="GENOBJS := \\\\\n"
 
+echo "${dir}/synchronize.o : synchronize.cu ${dir}/synchronize.dep"
+echo "	@printf \"Compiling  %-35s > %s\\\\n\" synchronize.cu ${dir}/synchronize.o"
+echo "	mkdir -p ${dir}"
+echo "	\${NVCC} \${NVCUFLAGS} -dc synchronize.cu -o ${dir}/synchronize.o"
+echo ""
+targets="$targets\t${dir}/synchronize.o \\\\\n"
+
 for base in sendrecv all_reduce all_gather broadcast reduce reduce_scatter all_to_all custom_collective; do
   opn=0
   for op in sum prod min max premulsum sumpostdiv; do
