@@ -1529,13 +1529,11 @@ static ncclResult_t hostToDevRedOp(
   return ncclSuccess;
 }
 
-ncclResult_t synchronize(int workIndex, ncclComm* comm, cudaStream_t stream) {
-  struct ncclChannel* channel0 = comm->channels;
-  int opIndex = (channel0->workFifoTail-1)%NCCL_MAX_OPS;
-  int chWorkIndex = channel0->workFifo[opIndex].elems->index;
+ncclResult_t synchronize(int workIndex, ncclComm* comm, hipStream_t stream) {
+  int chWorkIndex = comm->mscclHostComm.workIndex;
   int trueWorkIndex = (chWorkIndex+1)*1000+workIndex;
   void* args[] = {(void*) &trueWorkIndex, (void*) (&comm->devComm)};
-  CUDACHECK(cudaLaunchKernel((void*) mscclSynchronize, dim3(1), dim3(7), args, 0, stream));
+  CUDACHECK(hipLaunchKernel((void*) mscclSynchronize, dim3(1), dim3(16), args, 0, stream));
 
   return ncclSuccess;
 }

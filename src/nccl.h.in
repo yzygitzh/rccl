@@ -491,7 +491,7 @@ ncclResult_t  ncclGroupEnd();
 ncclResult_t pncclGroupEnd();
 /// @endcond
 
-ncclResult_t ncclSynchronize(int workIndex, ncclComm* comm, cudaStream_t stream);
+ncclResult_t ncclSynchronize(int workIndex, ncclComm* comm, hipStream_t stream);
 
 #ifdef __cplusplus
 } // end extern "C"

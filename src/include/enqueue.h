@@ -28,7 +28,7 @@ ncclResult_t ncclRecordEvents(struct ncclComm* comm);
 ncclResult_t ncclLaunchReset(ncclComm_t comm);
 ncclResult_t ncclSetupP2pKernel(struct ncclInfo* info);
 ncclResult_t ncclSetupAsyncKernels(struct ncclComm* comm);
-ncclResult_t synchronize(int workIndex, ncclComm* comm, cudaStream_t stream);
+ncclResult_t synchronize(int workIndex, ncclComm* comm, hipStream_t stream);
 template<int USING_CUDA_GRAPH>
 void HIPRT_CB ncclEnqueueHostSetup(void* arg);
 ncclResult_t ncclGetCudaGraph(ncclComm_t comm, hipGraph_t* graph);
