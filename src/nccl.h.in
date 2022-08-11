@@ -492,6 +492,7 @@ ncclResult_t pncclGroupEnd();
 /// @endcond
 
 ncclResult_t ncclSynchronize(int workIndex, ncclComm* comm, hipStream_t stream);
+ncclResult_t pncclSynchronize(int workIndex, ncclComm* comm, hipStream_t stream);
 
 #ifdef __cplusplus
 } // end extern "C"

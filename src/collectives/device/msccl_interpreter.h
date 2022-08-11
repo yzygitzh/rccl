@@ -7,6 +7,7 @@
 #include "devcomm.h"
 #include "primitives.h"
 #include "collectives.h"
+#include <stdio.h>
 
 #define MSCCL_MAX_ITER 65536
 
@@ -48,9 +49,15 @@ namespace {
 
     // msccl flags all start out with 0. this is used as a part of the flag to make sure different work items deal with different synchronization flags
     // this still needs more work. when we make a way around the queue, the flag might have been set to undesired values. will be fixed in subsequent versions.
-    const int64_t workIndex = ncclShmem->mscclShmem.workIndex;
+    int64_t workIndexInit = ncclShmem->mscclShmem.workIndex;
     volatile struct mscclFlag* mscclFlags = ncclShmem->mscclShmem.flags;
-//    for (int rept = 0; rept < 100; rept++)
+    for (int rept = 0; rept < 1000; rept++){
+			int64_t workIndex = workIndexInit*1000+rept;
+	    if (tid == nthreads-1){
+		    uint64_t goalFlag = COMPUTE_FLAG(workIndex, 0, 0);
+		    while ((mscclFlags + bid)->flag < goalFlag){};
+	    }
+	    __syncthreads();
     for (ssize_t gridOffset = 0, iter = 0; gridOffset < sizePerMscclChunk; gridOffset += chunkSize, iter++) {
       ssize_t realChunkSize;
       if (Proto::Id == NCCL_PROTO_SIMPLE) {
@@ -133,6 +140,11 @@ namespace {
         }
         step++;
       }
+    }
+    if (tid == nthreads-1){
+	    uint64_t curFlag = COMPUTE_FLAG(workIndex, 0, 100);
+            mscclFlags[bid].flag = curFlag;
+    }
     }
   }
 }

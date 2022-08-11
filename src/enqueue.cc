@@ -1531,7 +1531,7 @@ static ncclResult_t hostToDevRedOp(
 
 ncclResult_t synchronize(int workIndex, ncclComm* comm, hipStream_t stream) {
   int chWorkIndex = comm->mscclHostComm.workIndex;
-  int trueWorkIndex = (chWorkIndex+1)*1000+workIndex;
+  int trueWorkIndex = (chWorkIndex-1)*1000+workIndex;
   void* args[] = {(void*) &trueWorkIndex, (void*) (&comm->devComm)};
   CUDACHECK(hipLaunchKernel((void*) mscclSynchronize, dim3(1), dim3(16), args, 0, stream));
 

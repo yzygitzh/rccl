@@ -13,6 +13,6 @@ __global__ void mscclSynchronize(int workIndex, struct ncclDevComm* comm) {
     volatile struct mscclFlag* mscclFlags = ((ncclDevCommAndChannels*)comm)->mscclInfo->flags;
     uint64_t curFlag = COMPUTE_FLAG(workIndex, 0, 0);
     mscclFlags[tid].flag = curFlag;
-    uint64_t goalFlag = COMPUTE_FLAG(workIndex, 0, 3);
+    uint64_t goalFlag = COMPUTE_FLAG(workIndex, 0, 100);
     while ((mscclFlags + tid)->flag < goalFlag){};
 }
