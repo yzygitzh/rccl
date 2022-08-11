@@ -10,9 +10,9 @@
 
 __global__ void mscclSynchronize(int workIndex, struct ncclDevComm* comm) {
     int tid = threadIdx.x;
-    volatile struct scclFlag* scclFlags = comm->scclAlgoShared.flags;
+    volatile struct mscclFlag* mscclFlags = ((ncclDevCommAndChannels*)comm)->mscclInfo->flags;
     uint64_t curFlag = COMPUTE_FLAG(workIndex, 0, 0);
-    scclFlags[tid].flag = curFlag;
+    mscclFlags[tid].flag = curFlag;
     uint64_t goalFlag = COMPUTE_FLAG(workIndex, 0, 3);
-    while ((scclFlags + tid)->flag < goalFlag){};
+    while ((mscclFlags + tid)->flag < goalFlag){};
 }

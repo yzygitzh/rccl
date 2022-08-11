@@ -36,7 +36,7 @@ $(RULESFILE) :
 
 -include $(RULESFILE)
 
-LIBOBJ     := $(GENOBJS) $(OBJDIR)/functions.o $(OBJDIR)/onerank_reduce.o
+LIBOBJ     := $(GENOBJS) $(OBJDIR)/functions.o $(OBJDIR)/onerank_reduce.o $(OBJDIR)/synchronize.o
 
 -include $(DEPFILES)
 

@@ -142,7 +142,8 @@ if (BUILD_ALLREDUCE_ONLY)
   set(CU_SOURCES
       src/collectives/device/all_reduce.cu
       src/collectives/device/sendrecv.cu
-      src/collectives/device/functions.cu)
+      src/collectives/device/functions.cu
+      src/collectives/device/synchronize.cu)
 else()
   set(CU_SOURCES
       src/collectives/device/all_reduce.cu
@@ -154,6 +155,7 @@ else()
       src/collectives/device/sendrecv.cu
       src/collectives/device/onerank_reduce.cu
       src/collectives/device/all_to_all.cu
+      src/collectives/device/synchronize.cu
       src/collectives/device/custom_collective.cu
       src/collectives/device/functions.cu)
 endif()
@@ -190,6 +192,7 @@ set(CC_SOURCES
     src/collectives/all_to_all_api.cc
     src/collectives/all_to_allv_api.cc
     src/collectives/custom_collective.cc
+    src/collectives/synchronize_api.cc
     src/channel.cc
     #src/clique/CliqueManager.cc     # RCCL
     #src/clique/HandleCache.cc       # RCCL
