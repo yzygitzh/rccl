@@ -2,16 +2,28 @@
 
 Full documentation for RCCL is available at [https://rccl.readthedocs.io](https://rccl.readthedocs.io)
 
+## RCCL 2.21.5 for ROCm 6.3.1
+
+### Added
+
+### Changed
+
+* Enhanced user documentation
+
+### Resolved issues
+
+* Corrected user help strings in `install.sh`
+
 ## RCCL 2.21.5 for ROCm 6.3.0
 
 ### Added
 
-* MSCCL++ integration for specific contexts
+* MSCCL++ integration for AllReduce and AllGather on gfx942
 * Performance collection to rccl_replayer
 * Tuner Plugin example for MI300
 * Tuning table for large number of nodes
 * Support for amdclang++
-* New Rome model
+* Allow NIC ID remapping using `NCCL_RINGS_REMAP` environment variable
 
 ### Changed
 
