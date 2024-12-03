@@ -81,7 +81,7 @@ $ git submodule update --init --recursive --depth=1
 ```
 You may substitute an installation path of your own choosing by passing `CMAKE_INSTALL_PREFIX`. For example:
 ```shell
-$ cmake -DCMAKE_INSTALL_PREFIX=$PWD/rccl-install ..
+$ cmake -DCMAKE_INSTALL_PREFIX=$PWD/rccl-install -DCMAKE_BUILD_TYPE=Release ..
 ```
 Note: ensure rocm-cmake is installed, `apt install rocm-cmake`.
 
