@@ -68,33 +68,33 @@ if (BUILD_LOCAL_GPU_TARGET_ONLY)
 endif()
 
 # Determine which GPU architectures to build for
-set(AMDGPU_TARGETS "${DEFAULT_GPUS}" CACHE STRING "Target default GPUs if AMDGPU_TARGETS is not defined.")
+set(GPU_TARGETS "${DEFAULT_GPUS}" CACHE STRING "Target default GPUs if GPU_TARGETS is not defined.")
 
 # Modify GPU architectures for Address Sanitizer builds by appending "xnack+"
 if (BUILD_ADDRESS_SANITIZER)
   SET(amdgpu_targets "")
-  foreach(amdgpu_target IN LISTS AMDGPU_TARGETS)
+  foreach(amdgpu_target IN LISTS GPU_TARGETS)
     if(NOT amdgpu_target STREQUAL "")
       list(APPEND amdgpu_targets "${amdgpu_target}:xnack+")
     endif()
   endforeach()
-  SET(AMDGPU_TARGETS "${amdgpu_targets}" CACHE STRING "Modified GPU list for Address-Sanitizer enabled build." FORCE)
+  SET(GPU_TARGETS "${amdgpu_targets}" CACHE STRING "Modified GPU list for Address-Sanitizer enabled build." FORCE)
 endif()
 
-# Check if clang compiler can offload to AMDGPU_TARGETS
+# Check if clang compiler can offload to GPU_TARGETS
 if (COMMAND rocm_check_target_ids)
-  message(STATUS "Checking for ROCm support for GPU targets: " "${AMDGPU_TARGETS}")
-  rocm_check_target_ids(SUPPORTED_GPUS TARGETS ${AMDGPU_TARGETS})
+  message(STATUS "Checking for ROCm support for GPU targets: " "${GPU_TARGETS}")
+  rocm_check_target_ids(SUPPORTED_GPUS TARGETS ${GPU_TARGETS})
 else()
   message(WARNING "Unable to check for supported GPU targets. Falling back to default GPUs.")
   set(SUPPORTED_GPUS ${DEFAULT_GPUS})
 endif()
 
-set(GPU_TARGETS "${SUPPORTED_GPUS}" CACHE STRING "GPU targets to compile for.")
-message(STATUS "Compiling for ${GPU_TARGETS}")
+set(COMPILING_TARGETS "${SUPPORTED_GPUS}" CACHE STRING "GPU targets to compile for.")
+message(STATUS "Compiling for ${COMPILING_TARGETS}")
 
-## NOTE: Reload rocm-cmake in order to update GPU_TARGETS
-include(cmake/Dependencies.cmake) # Reloading to use desired GPU_TARGETS instead of defaults
+## NOTE: Reload rocm-cmake in order to update COMPILING_TARGETS
+include(cmake/Dependencies.cmake) # Reloading to use desired COMPILING_TARGETS instead of defaults
 
 # Try to establish ROCM_PATH (for find_package)
 #==================================================================================================
@@ -301,7 +301,7 @@ endif()
 
 ## Disable building MSCCL++ if the build environment is invalid
 ## Currently MSCCL++ is supported only on gfx942
-if (ENABLE_MSCCLPP AND NOT ("gfx942" IN_LIST GPU_TARGETS OR "gfx942:xnack-" IN_LIST GPU_TARGETS OR "gfx942:xnack+" IN_LIST GPU_TARGETS))
+if (ENABLE_MSCCLPP AND NOT ("gfx942" IN_LIST COMPILING_TARGETS OR "gfx942:xnack-" IN_LIST COMPILING_TARGETS OR "gfx942:xnack+" IN_LIST COMPILING_TARGETS))
   set(ENABLE_MSCCLPP OFF)
   message(WARNING "Can only build MSCCL++ for gfx942; disabling MSCCL++ build")
 endif()
@@ -744,7 +744,7 @@ if (HAVE_KERNARG_PRELOAD)
 endif()
 
 ## NOTE: This is currently being handled by rocm-cmake, however may need to be re-enabled in the future
-#foreach(target ${GPU_TARGETS})
+#foreach(target ${COMPILING_TARGETS})
 #  target_compile_options(rccl PRIVATE --offload-arch=${target})
 #endforeach()
 
@@ -868,7 +868,7 @@ if(NOT BUILD_SHARED_LIBS)
     endif()
   endforeach()
 
-  foreach(target ${GPU_TARGETS})
+  foreach(target ${COMPILING_TARGETS})
     list(APPEND static_link_flags --offload-arch=${target})
   endforeach()
   list(JOIN static_link_flags " " flags_str)

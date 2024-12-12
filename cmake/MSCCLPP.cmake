@@ -73,7 +73,7 @@ if(ENABLE_MSCCLPP)
         )
 
         message(STATUS "Building mscclpp only for gfx942.")
-        
+
         mscclpp_cmake_arg(CMAKE_PREFIX_PATH)
         mscclpp_cmake_arg(CMAKE_INSTALL_RPATH_USE_LINK_PATH)
         mscclpp_cmake_arg(HIP_COMPILER)
@@ -82,7 +82,7 @@ if(ENABLE_MSCCLPP)
         if(BUILD_ADDRESS_SANITIZER)
             set(GFX942_VARIANT "gfx942:xnack+")
         endif()
-    
+
         download_project(PROJ                mscclpp_nccl
                          # GIT_REPOSITORY      https://github.com/microsoft/mscclpp.git
                          # GIT_TAG             1e82dd444fc1ed8b7add354eebaab8a94e67d5fc

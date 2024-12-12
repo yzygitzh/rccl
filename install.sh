@@ -219,7 +219,7 @@ fi
 
 # Build for specified GPU target(s) only
 if [[ ! -z "${build_amdgpu_targets}" ]]; then
-    cmake_common_options="${cmake_common_options} -DAMDGPU_TARGETS=${build_amdgpu_targets}"
+    cmake_common_options="${cmake_common_options} -DGPU_TARGETS=${build_amdgpu_targets}"
 fi
 
 # shared vs static
