@@ -898,7 +898,7 @@ static ncclResult_t collNetInitRailRankMap(ncclComm_t comm) {
 
   comm->collNetDenseToUserRank = ncclMemoryStackAlloc<int>(&comm->memPermanent, comm->nRanks);
   comm->collNetUserToDenseRank = ncclMemoryStackAlloc<int>(&comm->memPermanent, comm->nRanks);
-  // initialize collNetUserToDenseRank[rank]  
+  // initialize collNetUserToDenseRank[rank]
   comm->collNetUserToDenseRank[rank] = -1;
   for (int h = 0; h < comm->collNetHeadsNum; h++) {
     nonHeadMask ^= 1ull << comm->rankToLocalRank[comm->collNetHeads[h]];
@@ -1244,7 +1244,6 @@ static ncclResult_t initTransportsRank(struct ncclComm* comm, struct ncclComm* p
   int *topParentLocalRanks = NULL;
   int tpProxyRank;
 
-  int highestTransportType = TRANSPORT_P2P;
   bool needsProxy = false;
   bool mscclNeedsProxy = needsProxy;
 
@@ -1701,7 +1700,7 @@ static ncclResult_t initTransportsRank(struct ncclComm* comm, struct ncclComm* p
     if (comm->nRanks == 1) continue;
     NCCLCHECKGOTO(ncclTransportP2pConnect(comm, c, 1, &channel->ring.prev, 1, &channel->ring.next, 0), ret, fail);
   }
-  NCCLCHECKGOTO(ncclTransportP2pSetup(comm, &ringGraph, 0, &highestTransportType, &needsProxy), ret, fail);
+  NCCLCHECKGOTO(ncclTransportP2pSetup(comm, &ringGraph, 0, NULL, &needsProxy), ret, fail);
   mscclNeedsProxy |= needsProxy;
   if (ringGraph.nIntraChannels && rcclParamP2pNetDisable() == 0) {
     comm->useIntraNet = 1;
@@ -1722,7 +1721,7 @@ static ncclResult_t initTransportsRank(struct ncclComm* comm, struct ncclComm* p
     NCCLCHECKGOTO(ncclTransportP2pConnect(comm, c, NCCL_MAX_TREE_ARITY, channel->tree.down, 1, &channel->tree.up, 0), ret, fail);
     NCCLCHECKGOTO(ncclTransportP2pConnect(comm, c, 1, &channel->tree.up, NCCL_MAX_TREE_ARITY, channel->tree.down, 0), ret, fail);
   }
-  NCCLCHECKGOTO(ncclTransportP2pSetup(comm, &treeGraph, 0, &highestTransportType, &needsProxy), ret, fail);
+  NCCLCHECKGOTO(ncclTransportP2pSetup(comm, &treeGraph, 0, NULL, &needsProxy), ret, fail);
   mscclNeedsProxy |= needsProxy;
   INFO(NCCL_INIT, "Connected all trees");
 
