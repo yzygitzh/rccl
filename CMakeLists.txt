@@ -110,6 +110,7 @@ if(NOT DEFINED ROCM_PATH)
 else()
   message(STATUS "ROCM_PATH found: ${ROCM_PATH}")
 endif()
+set(ENV{ROCM_PATH} ${ROCM_PATH})
 
 if("${CMAKE_CXX_COMPILER}" MATCHES ".*amdclang\\+\\+")
   message(STATUS "Compiling with amdclang++")
@@ -639,7 +640,7 @@ set(GEN_DIR "${HIPIFY_DIR}/gensrc")
 
 # Execute the python script to generate required files
 execute_process(
-    COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_SOURCE_DIR}/src/device/generate.py ${GEN_DIR} ${IFC_ENABLED} ${COLLTRACE} ${ENABLE_MSCCL_KERNEL} ${BUILD_LOCAL_GPU_TARGET_ONLY} ${ONLY_FUNCS}
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/src/device/generate.py ${GEN_DIR} ${IFC_ENABLED} ${COLLTRACE} ${ENABLE_MSCCL_KERNEL} ${BUILD_LOCAL_GPU_TARGET_ONLY} ${ONLY_FUNCS}
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
     RESULT_VARIABLE gen_py_result
     ERROR_VARIABLE gen_py_error
